@@ -1,0 +1,19 @@
+{
+  "cases": [
+    {
+      "name": "account with employee id",
+      "inputs": { "account": { "attributes": { "employeeId": "1001" } }, "application": { "name": "HR" } },
+      "expect": { "identityAttributeName": "employeeNumber", "identityAttributeValue": "1001" }
+    },
+    {
+      "name": "account without employee id returns an empty map",
+      "inputs": { "account": { "attributes": {} }, "application": { "name": "HR" } },
+      "expect": {}
+    },
+    {
+      "name": "deliberately wrong expectation (shows a FAIL)",
+      "inputs": { "account": { "attributes": { "employeeId": "1001" } }, "application": { "name": "HR" } },
+      "expect": { "identityAttributeName": "email", "identityAttributeValue": "1001" }
+    }
+  ]
+}

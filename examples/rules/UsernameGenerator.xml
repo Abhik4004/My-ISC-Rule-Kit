@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<!DOCTYPE Rule PUBLIC "sailpoint.dtd" "sailpoint.dtd">
+<Rule name="Username Generator" type="AttributeGenerator">
+  <Description>Builds first initial + last name, lowercased.</Description>
+  <Source><![CDATA[
+import org.apache.commons.lang.StringUtils;
+
+String generateUsername(String first, String last) {
+  if (StringUtils.isBlank(first) || StringUtils.isBlank(last)) {
+    return null;
+  }
+  String base = first.trim().substring(0, 1) + last.trim();
+  return base.toLowerCase().replaceAll("[^a-z0-9]", "");
+}
+
+String username = generateUsername(identity.getFirstname(), identity.getLastname());
+log.debug("Generated username for " + identity.getName() + ": " + username);
+return username;
+  ]]></Source>
+</Rule>

@@ -1,0 +1,8 @@
+// Correlation rule: correlate HR accounts to identities on employeeNumber.
+String empId = account.getAttribute("employeeId");
+Map returnMap = new HashMap();
+if (empId != null) {
+  returnMap.put("identityAttributeName", "employeeNumber");
+  returnMap.put("identityAttributeValue", empId);
+}
+return returnMap;

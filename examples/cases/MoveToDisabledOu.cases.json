@@ -1,0 +1,43 @@
+{
+  "cases": [
+    {
+      "name": "inactive identity, Disable request moves to Disabled OU",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "inactive" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory", "nativeIdentity": "CN=jdoe,OU=Users,DC=example,DC=org",
+              "operation": "Disable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory", "attributes": { "environment": "Sandbox" } },
+        "integration": null,
+        "idn": {
+          "accountExistsByNativeIdentity": true,
+          "getRawAccountAttribute": { "$byLastArg": { "description": "Staff" }, "$default": "" }
+        }
+      },
+      "expectChanged": {
+        "plan": { "accountRequests": [ { "attributeRequests": [
+          { "name": "AC_NewParent", "operation": "Set", "value": "OU=Disabled,DC=test" },
+          { "name": "description", "operation": "Set", "value": "Staff" }
+        ] } ] }
+      },
+      "expectLogContains": [ "begins" ]
+    },
+    {
+      "name": "active identity is left untouched",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory", "nativeIdentity": "CN=jdoe", "operation": "Disable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory", "attributes": { "environment": "Production" } },
+        "idn": { "accountExistsByNativeIdentity": false }
+      },
+      "expectChanged": {}
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "cases": [
+    {
+      "name": "Tyler Smith",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Active Directory" },
+        "field": { "name": "sAMAccountName" }
+      },
+      "expect": "tsmith",
+      "expectLogContains": ["Generated username for tsmith"]
+    },
+    {
+      "name": "punctuation is stripped",
+      "inputs": {
+        "identity": { "name": "x", "firstname": "Mary-Anne", "lastname": "O'Neil" },
+        "application": { "name": "Active Directory" },
+        "field": { "name": "sAMAccountName" }
+      },
+      "expect": "moneil"
+    }
+  ]
+}

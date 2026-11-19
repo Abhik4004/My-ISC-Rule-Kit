@@ -1,0 +1,11 @@
+// Identity Attribute rule with several problems, for the validator demo.
+import sailpoint.object.Identity;
+// TODO: finish this
+String password = "hunter2";
+Identity other = context.getObjectByName(Identity.class, "bob");
+Thread.sleep(1000);
+for (Identity i : context.search(Identity.class)) {
+  log.debug(i.toXml())
+  System.out.println(i.getName());
+}
+return account.getName();
