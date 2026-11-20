@@ -34,6 +34,7 @@ iscrule run      <rule> [cases.json] [same options]        validate + test; with
 iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   ISC-ready rule XML
 iscrule scaffold <type>                                    starter cases.json for a rule type
 iscrule types                                              rule types, their inputs and return contract
+iscrule suite    [folder] [--verbose] [--junit FILE]       validate + test every rule in a folder (default: samples)
 ```
 
 `<rule>` is one of:
@@ -59,6 +60,52 @@ for CI.
 .\iscrule.cmd validate examples\rules\Broken.bsh --type IdentityAttribute
 .\iscrule.cmd export   examples\rules\MoveToDisabledOu.java -o "Rule - BeforeProvisioning - MoveToDisabledOu.xml"
 ```
+
+## Sample library and `iscrule suite`
+
+[`samples/`](samples) holds realistic rules for every rule type, each with its own cases file. Run them all with one
+command:
+
+```powershell
+.\iscrule.cmd suite
+```
+
+```text
+SUITE  samples  (14 rules)
+  PASS    AttributeGenerator\EmailAddress.bsh           6/6 cases     0 errors, 1 warning
+  CAUGHT  BeforeProvisioning\AdJoinerCreate.buggy.bsh   1/6 cases     0 errors, 2 warnings
+          caught: "finance joiner ..." threw NullPointerException: String.valueOf(null) ...
+  ...
+RESULT  11 passed, 3 buggy samples caught  (14 rules, 83 cases)
+```
+
+| Folder | Rule | What it shows |
+|---|---|---|
+| AttributeGenerator | `UniqueSamAccountName.java` | RDK class style, uniqueness loop with `idn.isUniqueLDAPValue`, 20-char limit, throws when all taken |
+| AttributeGenerator | `EmailAddress.bsh` | preferred name, source setting, `idn.countIdentitiesBySearchableIdentityAttribute` |
+| BeforeProvisioning | `AdLeaverRehire.java` | Disable: OU move, clear manager, hide from GAL, remove groups. Enable: OU by employee type |
+| BeforeProvisioning | `AdJoinerCreate.bsh` | Create: OU by department, description, default groups |
+| BuildMap | `HrCsvBuildMap.bsh` | trimming, short rows, date reformat, multi-value column |
+| Correlation | `EmployeeIdThenEmail.bsh` | leading zeros, email fallback, skipping service accounts |
+| IdentityAttribute | `LifecycleState.bsh` | lifecycle from HR status and dates, keeps `oldValue`, a case that expects an error |
+| IdentityAttribute | `DepartmentCode.bsh` | exact, keyword and fallback mapping |
+| ManagerCorrelation | `ManagerByEmployeeId.bsh` | parsing `"SMITH, Tyler (000123)"` |
+| Transform | `ProperCaseName.bsh`, `PhoneE164.bsh` | name casing rules; phone normalisation with an optional input |
+
+Files named `*.buggy.*` are broken on purpose. The suite reports them as **CAUGHT** when a case fails, errors or
+times out (or validation finds an error), and as **MISSED** if they pass. They cover a `String.valueOf(null)`
+crash, strings compared with `==`, and an endless loop.
+
+How the suite finds things:
+
+* every `.java`, `.bsh` or `.xml` file under the folder is a rule; `Foo.java` uses `Foo.cases.json` next to it
+  (no cases file means a smoke run with default inputs);
+* the rule type comes from the folder name (`samples/Transform/...`), else it is auto-detected;
+* each case gets 3 seconds unless you pass `--timeout-ms`; `--verbose` prints every case; `--junit` writes one
+  report for CI. Failing rules are printed in full, passing ones as one line.
+
+To build your own library, copy the layout: `my-rules/<RuleType>/<Name>.java` + `<Name>.cases.json`, then run
+`.\iscrule.cmd suite my-rules`.
 
 ## Easiest: paste into `paste-here/Rule.java` and press Run
 
@@ -118,6 +165,7 @@ cases file changes, and keeps going if you save a half-finished edit. Stop it wi
 | Syntax | `SYN0xx` | unterminated strings/comments, bracket mismatches, likely missing `;`, **BeanShell parse errors from the real parser** (e.g. generics, which BeanShell 2.0b6 cannot parse) |
 | Code restrictions | `RES00x`, `GUI001` | blocked calls (`getObjectByName`, `search`, `sleep`, ...), `Thread`, `System.out`, `public static`, `Logger.getLogger`, BeanShell shell commands, `.toXml()` |
 | Guidelines | `GUI0xx` | loops, null-unsafe `getAttribute(..).x()`, hard-coded credentials, logging secrets, non-standard log levels, commented-out code, TODOs, empty catch, unreachable code, unused imports |
+| Common bugs | `BUG001`, `BUG002` | strings compared with `==` / `!=` (checks identity, not text); `String.valueOf(x.getAttribute(..))`, which throws in BeanShell when the value is null |
 | Methods | `UNDEF001`, `GUI016` | call to a method that is not defined (with a "did you mean"), method defined but never called |
 | Rule contract | `TYP01x`, `VAR001` | missing `return`, Correlation maps missing `identityAttributeName/Value`, `BeforeProvisioning` returning a value, using an input the rule type does not receive |
 | RDK style | `CLS001`, `CLS002` | class wrapper detected; ISC inputs re-declared as fields (shadowing the real objects) |

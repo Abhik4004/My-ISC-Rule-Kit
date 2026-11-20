@@ -1,0 +1,11 @@
+{
+  "cases": [
+    { "name": "exact name", "inputs": { "identity": { "name": "a", "attributes": { "department": "Information Technology" } }, "oldValue": null, "idn": {} }, "expect": "IT" },
+    { "name": "exact name with padding and case", "inputs": { "identity": { "name": "b", "attributes": { "department": "  SCHOOL OF MEDICINE " } }, "oldValue": null, "idn": {} }, "expect": "SOM" },
+    { "name": "keyword: nursing", "inputs": { "identity": { "name": "c", "attributes": { "department": "Pediatric Nursing - 5th Floor" } }, "oldValue": null, "idn": {} }, "expect": "NUR" },
+    { "name": "keyword: accounting -> FIN", "inputs": { "identity": { "name": "d", "attributes": { "department": "Accounting Ops" } }, "oldValue": null, "idn": {} }, "expect": "FIN" },
+    { "name": "fallback: first three letters", "inputs": { "identity": { "name": "e", "attributes": { "department": "Radiology" } }, "oldValue": null, "idn": {} }, "expect": "RAD" },
+    { "name": "short name", "inputs": { "identity": { "name": "f", "attributes": { "department": "QA" } }, "oldValue": null, "idn": {} }, "expect": "QA" },
+    { "name": "no department -> null", "inputs": { "identity": { "name": "g", "attributes": {} }, "oldValue": "IT", "idn": {} }, "expect": null }
+  ]
+}

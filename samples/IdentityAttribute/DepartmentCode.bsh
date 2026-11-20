@@ -1,0 +1,21 @@
+// Identity Attribute rule: short department code from the HR department name.
+// Exact names first, then keyword matches, else the first three letters in upper case.
+import java.util.LinkedHashMap;
+import java.util.Map;
+
+String dept = (String) identity.getAttribute("department");
+if (dept == null || dept.trim().isEmpty()) return null;
+String d = dept.trim().toLowerCase();
+
+Map exact = new LinkedHashMap();
+exact.put("information technology", "IT");
+exact.put("human resources", "HR");
+exact.put("school of medicine", "SOM");
+if (exact.containsKey(d)) return exact.get(d);
+
+if (d.contains("nurs")) return "NUR";
+if (d.contains("pharm")) return "PHA";
+if (d.contains("finance") || d.contains("accounting")) return "FIN";
+
+String letters = d.replaceAll("[^a-z]", "");
+return letters.length() >= 3 ? letters.substring(0, 3).toUpperCase() : letters.toUpperCase();

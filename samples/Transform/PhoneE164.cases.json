@@ -1,0 +1,11 @@
+{
+  "cases": [
+    { "name": "US format with punctuation", "inputs": { "value": "(415) 555-0123", "idn": {} }, "expect": "+14155550123" },
+    { "name": "US with leading 1 and extension", "inputs": { "value": "1-415-555-0123 x204", "idn": {} }, "expect": "+14155550123" },
+    { "name": "already international", "inputs": { "value": "+44 20 7946 0958", "idn": {} }, "expect": "+442079460958" },
+    { "name": "00 prefix", "inputs": { "value": "0044 20 7946 0958", "idn": {} }, "expect": "+442079460958" },
+    { "name": "UK local with defaultCountry 44 drops the trunk 0", "inputs": { "value": "020 7946 0958", "defaultCountry": "44", "idn": {} }, "expect": "+442079460958" },
+    { "name": "too short for US -> null", "inputs": { "value": "555-0123", "idn": {} }, "expect": null, "expectLogContains": [ "Not a valid NANP number" ] },
+    { "name": "null in, null out", "inputs": { "value": null, "idn": {} }, "expect": null }
+  ]
+}

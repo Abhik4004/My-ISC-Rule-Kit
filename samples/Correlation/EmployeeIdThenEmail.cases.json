@@ -1,0 +1,35 @@
+{
+  "cases": [
+    {
+      "name": "employee id with leading zeros",
+      "inputs": { "account": { "identity": "E0001234", "attributes": { "employeeId": "0001234", "email": "x@example.org" } }, "application": { "name": "Workday [source]" }, "idn": {} },
+      "expect": { "identityAttributeName": "employeeNumber", "identityAttributeValue": "1234" }
+    },
+    {
+      "name": "employee id of all zeros keeps one zero",
+      "inputs": { "account": { "identity": "E0", "attributes": { "employeeId": "000" } }, "application": { "name": "Workday [source]" }, "idn": {} },
+      "expect": { "identityAttributeName": "employeeNumber", "identityAttributeValue": "0" }
+    },
+    {
+      "name": "no employee id -> email, lowercased",
+      "inputs": { "account": { "identity": "badge-77", "attributes": { "email": " Tyler.Smith@Example.ORG " } }, "application": { "name": "Badge [source]" }, "idn": {} },
+      "expect": { "identityAttributeName": "email", "identityAttributeValue": "tyler.smith@example.org" }
+    },
+    {
+      "name": "blank employee id falls through to email",
+      "inputs": { "account": { "identity": "badge-78", "attributes": { "employeeId": "  ", "email": "a@b.org" } }, "application": { "name": "Badge [source]" }, "idn": {} },
+      "expect": { "identityAttributeName": "email", "identityAttributeValue": "a@b.org" }
+    },
+    {
+      "name": "service account is never correlated",
+      "inputs": { "account": { "identity": "SVC_backup", "attributes": { "employeeId": "1234" } }, "application": { "name": "Badge [source]" }, "idn": {} },
+      "expect": {},
+      "expectLogContains": [ "Skipping non-person account" ]
+    },
+    {
+      "name": "nothing usable -> empty map (uncorrelated)",
+      "inputs": { "account": { "identity": "badge-79", "attributes": { "email": "not-an-email" } }, "application": { "name": "Badge [source]" }, "idn": {} },
+      "expect": {}
+    }
+  ]
+}

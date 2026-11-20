@@ -1,0 +1,25 @@
+{
+  "cases": [
+    {
+      "name": "name with id in parentheses",
+      "inputs": { "link": { "applicationName": "Workday [source]", "nativeIdentity": "1001" }, "managerAttributeValue": "SMITH, Tyler (000123)", "idn": {} },
+      "expect": { "identityAttributeName": "employeeNumber", "identityAttributeValue": "123" }
+    },
+    {
+      "name": "bare id",
+      "inputs": { "link": { "applicationName": "Workday [source]", "nativeIdentity": "1002" }, "managerAttributeValue": " 0042 ", "idn": {} },
+      "expect": { "identityAttributeName": "employeeNumber", "identityAttributeValue": "42" }
+    },
+    {
+      "name": "no manager -> uncorrelated",
+      "inputs": { "link": { "applicationName": "Workday [source]", "nativeIdentity": "1003" }, "managerAttributeValue": null, "idn": {} },
+      "expect": {}
+    },
+    {
+      "name": "garbage value -> uncorrelated with a warning",
+      "inputs": { "link": { "applicationName": "Workday [source]", "nativeIdentity": "1004" }, "managerAttributeValue": "TBD", "idn": {} },
+      "expect": {},
+      "expectLogContains": [ "Unrecognised manager value 'TBD' on 1004" ]
+    }
+  ]
+}

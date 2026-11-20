@@ -1,0 +1,35 @@
+// Transform rule: proper-case a person's name from an all-caps HR feed.
+//   "MARY-JANE O'BRIEN"  -> "Mary-Jane O'Brien"
+//   "ronald mcdonald"    -> "Ronald McDonald"
+//   "VAN DER BERG"       -> "van der Berg"   (lowercase particles, except as the first word)
+// Input variable: value (set as the transform's "value" attribute or the previous transform's output).
+
+public String cap(String w) {
+    if (w.isEmpty()) return w;
+    String s = w.substring(0, 1).toUpperCase() + w.substring(1).toLowerCase();
+    if (s.startsWith("Mc") && s.length() > 2) s = "Mc" + s.substring(2, 3).toUpperCase() + s.substring(3);
+    return s;
+}
+
+public String capParts(String word, String sep) {
+    String[] parts = word.split(java.util.regex.Pattern.quote(sep), -1);
+    StringBuilder b = new StringBuilder();
+    for (int i = 0; i < parts.length; i++) {
+        if (i > 0) b.append(sep);
+        b.append(sep.equals("-") ? capParts(parts[i], "'") : cap(parts[i]));
+    }
+    return b.toString();
+}
+
+if (value == null) return null;
+String[] particles = { "van", "der", "de", "la", "von", "da" };
+String[] words = value.trim().split("\\s+");
+StringBuilder out = new StringBuilder();
+for (int i = 0; i < words.length; i++) {
+    String w = words[i];
+    boolean particle = false;
+    for (String p : particles) if (p.equalsIgnoreCase(w)) particle = true;
+    if (i > 0) out.append(" ");
+    out.append(particle && i > 0 ? w.toLowerCase() : capParts(w, "-"));
+}
+return out.toString();

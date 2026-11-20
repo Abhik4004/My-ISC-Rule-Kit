@@ -158,7 +158,13 @@ public final class RuleRunner {
             type = t.getClass().getSimpleName();
             msg = t.getMessage() == null ? t.toString() : t.getMessage();
         }
-        if (root instanceof NullPointerException) msg = "A method was called on null. " + (msg.startsWith("Cannot") ? msg : "");
+        if (root instanceof NullPointerException) {
+            if (msg.contains("array length because \"value\" is null"))
+                return new ErrorInfo(type, "String.valueOf(null) or a similar call was given null.", line,
+                        "In BeanShell, String.valueOf(x) with x == null picks valueOf(char[]) and throws. "
+                        + "Check for null first, or use \"\" + x / sailpoint.tools.Util.otos(x).");
+            msg = "A method was called on null. " + (msg.startsWith("Cannot") ? msg : "");
+        }
         return new ErrorInfo(type, msg.trim(), line, hint(msg));
     }
 

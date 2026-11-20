@@ -1,0 +1,6 @@
+{
+  "cases": [
+    { "name": "single spaces already", "inputs": { "value": "a b c", "idn": {} }, "expect": "a b c" },
+    { "name": "double spaces collapse", "inputs": { "value": "a  b   c", "idn": {} }, "expect": "a b c" }
+  ]
+}

@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "name": "free on the first try",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": true }
+      },
+      "expect": "tsmith"
+    },
+    {
+      "name": "taken twice -> adds 2",
+      "inputs": {
+        "identity": { "name": "tsmith2", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": { "$byLastArg": { "tsmith": false, "tsmith1": false }, "$default": true } }
+      },
+      "expect": "tsmith2",
+      "expectLogContains": [ "taken, using tsmith2" ]
+    },
+    {
+      "name": "hyphens, apostrophes and accents are dropped",
+      "inputs": {
+        "identity": { "name": "mobrien", "firstname": "Mary-Jane", "lastname": "O'Brien" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": true }
+      },
+      "expect": "mobrien"
+    },
+    {
+      "name": "long last name is cut to 20 characters",
+      "inputs": {
+        "identity": { "name": "awolfe", "firstname": "Alexander", "lastname": "Wolfeschlegelsteinhausen" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": true }
+      },
+      "expect": "awolfeschlegelsteinh"
+    },
+    {
+      "name": "long and taken -> trims the base so the number still fits",
+      "inputs": {
+        "identity": { "name": "awolfe", "firstname": "Alexander", "lastname": "Wolfeschlegelsteinhausen" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": { "$byLastArg": { "awolfeschlegelsteinh": false }, "$default": true } }
+      },
+      "expect": "awolfeschlegelstein1"
+    },
+    {
+      "name": "missing last name -> null and a warning",
+      "inputs": {
+        "identity": { "name": "cher", "firstname": "Cher" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": true }
+      },
+      "expect": null,
+      "expectLogContains": [ "Missing first or last name" ]
+    },
+    {
+      "name": "every candidate taken -> throws",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Active Directory [source]" },
+        "field": { "name": "sAMAccountName" },
+        "idn": { "isUniqueLDAPValue": false }
+      },
+      "expectError": "No unique sAMAccountName"
+    }
+  ]
+}

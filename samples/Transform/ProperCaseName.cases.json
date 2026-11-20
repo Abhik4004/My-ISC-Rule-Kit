@@ -1,0 +1,10 @@
+{
+  "cases": [
+    { "name": "hyphen and apostrophe", "inputs": { "value": "MARY-JANE O'BRIEN", "idn": {} }, "expect": "Mary-Jane O'Brien" },
+    { "name": "Mc prefix", "inputs": { "value": "ronald mcdonald", "idn": {} }, "expect": "Ronald McDonald" },
+    { "name": "particles stay lowercase after the first word", "inputs": { "value": "LUDWIG VAN DER BERG", "idn": {} }, "expect": "Ludwig van der Berg" },
+    { "name": "particle as the first word is capitalised", "inputs": { "value": "DE LA CRUZ", "idn": {} }, "expect": "De la Cruz" },
+    { "name": "extra spaces collapse", "inputs": { "value": "  tyler    smith ", "idn": {} }, "expect": "Tyler Smith" },
+    { "name": "null in, null out", "inputs": { "value": null, "idn": {} }, "expect": null }
+  ]
+}

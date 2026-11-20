@@ -1,0 +1,65 @@
+{
+  "cases": [
+    {
+      "name": "plain name with the source domain",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Exchange [source]", "attributes": { "emailDomain": "ucsf.edu" } },
+        "field": { "name": "mail" },
+        "idn": { "countIdentitiesBySearchableIdentityAttribute": 0 }
+      },
+      "expect": "tyler.smith@ucsf.edu"
+    },
+    {
+      "name": "preferred first name wins",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith", "attributes": { "preferredFirstName": "Ty" } },
+        "application": { "name": "Exchange [source]", "attributes": { "emailDomain": "ucsf.edu" } },
+        "field": { "name": "mail" },
+        "idn": { "countIdentitiesBySearchableIdentityAttribute": 0 }
+      },
+      "expect": "ty.smith@ucsf.edu"
+    },
+    {
+      "name": "address taken -> adds 2",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Exchange [source]", "attributes": { "emailDomain": "ucsf.edu" } },
+        "field": { "name": "mail" },
+        "idn": { "countIdentitiesBySearchableIdentityAttribute": { "$byLastArg": { "tyler.smith@ucsf.edu": 1 }, "$default": 0 } }
+      },
+      "expect": "tyler.smith2@ucsf.edu"
+    },
+    {
+      "name": "spaces and hyphens removed",
+      "inputs": {
+        "identity": { "name": "mdelacruz", "firstname": "Mary Ann", "lastname": "De La-Cruz" },
+        "application": { "name": "Exchange [source]", "attributes": { "emailDomain": "ucsf.edu" } },
+        "field": { "name": "mail" },
+        "idn": { "countIdentitiesBySearchableIdentityAttribute": 0 }
+      },
+      "expect": "maryann.delacruz@ucsf.edu"
+    },
+    {
+      "name": "no domain configured -> example.org",
+      "inputs": {
+        "identity": { "name": "tsmith", "firstname": "Tyler", "lastname": "Smith" },
+        "application": { "name": "Exchange [source]", "attributes": {} },
+        "field": { "name": "mail" },
+        "idn": { "countIdentitiesBySearchableIdentityAttribute": 0 }
+      },
+      "expect": "tyler.smith@example.org"
+    },
+    {
+      "name": "missing last name -> null",
+      "inputs": {
+        "identity": { "name": "cher", "firstname": "Cher" },
+        "application": { "name": "Exchange [source]", "attributes": { "emailDomain": "ucsf.edu" } },
+        "field": { "name": "mail" },
+        "idn": {}
+      },
+      "expect": null,
+      "expectLogContains": [ "missing name" ]
+    }
+  ]
+}

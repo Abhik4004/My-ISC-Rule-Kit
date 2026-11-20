@@ -63,6 +63,10 @@ public final class Validator {
     private static final Pattern SENSITIVE = Pattern.compile("(pass(word|wd)?|secret|token|apikey)", Pattern.CASE_INSENSITIVE);
     private static final Pattern LOOP = Pattern.compile("\\b(for|while)\\s*\\(");
     private static final Pattern GETATTR_CHAIN = Pattern.compile("\\.getAttribute\\s*\\([^()]*\\)\\s*\\.\\s*\\w+\\s*\\(");
+    /** {@code x == "lit"}, {@code "lit" != x} (but not {@code x == null}). */
+    private static final Pattern STRING_EQ = Pattern.compile("[=!]=\\s*\"|\"\\s*[=!]=(?!=)");
+    /** String.valueOf(...) whose argument reads an attribute or map entry, which may be null. */
+    private static final Pattern VALUEOF_NULL = Pattern.compile("String\\s*\\.\\s*valueOf\\s*\\(\\s*[\\w.]*\\b(getAttribute\\w*|getStringAttribute\\w*|getRawAccountAttribute|get)\\s*\\(");
     private static final Pattern HARDCODED = Pattern.compile(
             "\\b(pass(word|wd)?|pwd|secret|api[_-]?key|token|client_?secret)\\w*\\s*=\\s*\"[^\"]+\"", Pattern.CASE_INSENSITIVE);
     private static final Pattern GENERICS = Pattern.compile("\\b[A-Z]\\w*\\s*<\\s*[A-Z?]\\w*(\\s*,\\s*[A-Z?]\\w*)*\\s*>");
@@ -245,9 +249,16 @@ public final class Validator {
             if (GETATTR_CHAIN.matcher(ln).find())
                 add(Severity.WARN, "GUI006", L(i + 1), "Method called directly on a getAttribute(...) result: it may be null. Null-check first.");
         }
-        for (int i = 0; i < ncl.length; i++)
+        for (int i = 0; i < ncl.length; i++) {
             if (HARDCODED.matcher(ncl[i]).find())
                 add(Severity.WARN, "GUI010", L(i + 1), "Looks like a hard-coded credential/test value. No passwords, keys or sensitive values in rule code.");
+            if (STRING_EQ.matcher(ncl[i]).find())
+                add(Severity.WARN, "BUG001", L(i + 1), "String compared with == or !=. That checks whether both are the same object, not the same text, "
+                        + "so it is usually false for values read from identities or accounts. Use \"text\".equals(x) or equalsIgnoreCase().");
+            if (VALUEOF_NULL.matcher(ncl[i]).find())
+                add(Severity.WARN, "BUG002", L(i + 1), "String.valueOf(...) on a value that can be null. In BeanShell String.valueOf(null) throws "
+                        + "NullPointerException (it picks valueOf(char[])). Null-check first, or use \"\" + x.");
+        }
 
         for (Scan.Tok k : toks) {
             if (k.kind() != Scan.Kind.COMMENT) continue;

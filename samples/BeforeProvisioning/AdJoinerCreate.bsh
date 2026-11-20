@@ -1,0 +1,51 @@
+// Before Provisioning rule for Active Directory joiners (Create requests only).
+//
+// - Picks the OU from the identity's department (Unassigned OU when unknown).
+// - Sets description "<title> - <department>" and pwdLastSet=0 (must change password at first logon).
+// - Adds the department group, plus the VPN group for remote workers.
+// - Leaves an existing description in the plan untouched.
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import sailpoint.object.Identity;
+import sailpoint.object.ProvisioningPlan;
+import sailpoint.object.ProvisioningPlan.AccountRequest;
+import sailpoint.object.ProvisioningPlan.AttributeRequest;
+
+Map DEPT_OU = new HashMap();
+DEPT_OU.put("finance", "OU=Finance,OU=Users,DC=example,DC=org");
+DEPT_OU.put("engineering", "OU=Engineering,OU=Users,DC=example,DC=org");
+DEPT_OU.put("nursing", "OU=Nursing,OU=Clinical,OU=Users,DC=example,DC=org");
+String UNASSIGNED_OU = "OU=Unassigned,OU=Users,DC=example,DC=org";
+String VPN_GROUP = "CN=VPN Users,OU=Groups,DC=example,DC=org";
+
+if (plan == null) return;
+Identity identity = plan.getIdentity();
+if (identity == null) return;
+
+String department = (String) identity.getAttribute("department");
+String title = (String) identity.getAttribute("title");
+Object isRemote = identity.getAttribute("isRemote");
+boolean remote = isRemote != null && "true".equalsIgnoreCase(isRemote.toString());
+
+for (AccountRequest req : plan.getAccountRequests()) {
+    if (!AccountRequest.Operation.Create.equals(req.getOperation())) continue;
+
+    String key = department == null ? "" : department.trim().toLowerCase();
+    String ou = DEPT_OU.containsKey(key) ? (String) DEPT_OU.get(key) : UNASSIGNED_OU;
+    if (ou.equals(UNASSIGNED_OU)) log.warn("No OU mapped for department '" + department + "', using Unassigned");
+    req.add(new AttributeRequest("AC_NewParent", ProvisioningPlan.Operation.Set, ou));
+    req.add(new AttributeRequest("pwdLastSet", ProvisioningPlan.Operation.Set, "0"));
+
+    if (req.getAttributeRequest("description") == null && title != null && department != null) {
+        req.add(new AttributeRequest("description", ProvisioningPlan.Operation.Set, title + " - " + department));
+    }
+
+    List groups = new ArrayList();
+    if (department != null && !department.trim().isEmpty()) {
+        groups.add("CN=" + department.trim() + " Staff,OU=Groups,DC=example,DC=org");
+    }
+    if (remote) groups.add(VPN_GROUP);
+    if (!groups.isEmpty()) req.add(new AttributeRequest("memberOf", ProvisioningPlan.Operation.Add, groups));
+}

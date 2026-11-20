@@ -1,0 +1,29 @@
+// Identity Attribute rule: cloudLifecycleState from HR data.
+//
+//   HR status T (terminated)                         -> inactive
+//   HR status L (leave) with leaveType "investigatory" -> suspended
+//   HR status L, any other leave                      -> leave
+//   HR status A, hireDate in the future               -> prehire
+//   HR status A                                       -> active
+//   anything else                                     -> keep the old value (or "unknown" when there is none)
+//
+// Dates are yyyy-MM-dd strings. "today" can be overridden with the identity attribute asOfDate (used by tests).
+import java.time.LocalDate;
+
+String status = (String) identity.getAttribute("hrStatus");
+String leaveType = (String) identity.getAttribute("leaveType");
+String hireDate = (String) identity.getAttribute("hireDate");
+String asOf = (String) identity.getAttribute("asOfDate");
+LocalDate today = asOf != null ? LocalDate.parse(asOf) : LocalDate.now();
+
+if (status == null) return oldValue != null ? oldValue : "unknown";
+status = status.trim().toUpperCase();
+
+if ("T".equals(status)) return "inactive";
+if ("L".equals(status)) return "investigatory".equalsIgnoreCase(leaveType) ? "suspended" : "leave";
+if ("A".equals(status)) {
+    if (hireDate != null && LocalDate.parse(hireDate).isAfter(today)) return "prehire";
+    return "active";
+}
+log.warn("Unknown HR status '" + status + "' for " + identity.getName());
+return oldValue != null ? oldValue : "unknown";

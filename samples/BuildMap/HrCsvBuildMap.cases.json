@@ -1,0 +1,37 @@
+{
+  "cases": [
+    {
+      "name": "full row",
+      "inputs": {
+        "cols": [ "employeeId", "firstName", "preferredName", "lastName", "hireDate", "termDate", "roles" ],
+        "record": [ " 1001 ", "Tyler", "", "Smith", "3/7/2024", "", "Nurse | Charge Nurse" ],
+        "application": { "name": "HR CSV [source]" },
+        "schema": { "name": "account" }
+      },
+      "expect": { "employeeId": "1001", "firstName": "Tyler", "preferredName": null, "lastName": "Smith",
+                  "displayName": "Tyler Smith", "hireDate": "2024-03-07", "termDate": null, "roles": [ "Nurse", "Charge Nurse" ] }
+    },
+    {
+      "name": "preferred name used for displayName",
+      "inputs": {
+        "cols": [ "employeeId", "firstName", "preferredName", "lastName", "hireDate", "termDate", "roles" ],
+        "record": [ "1002", "Robert", "Bob", "Jones", "12/31/2019", "01/15/2026", "" ],
+        "application": { "name": "HR CSV [source]" },
+        "schema": { "name": "account" }
+      },
+      "expect": { "employeeId": "1002", "firstName": "Robert", "preferredName": "Bob", "lastName": "Jones",
+                  "displayName": "Bob Jones", "hireDate": "2019-12-31", "termDate": "2026-01-15", "roles": [] }
+    },
+    {
+      "name": "short row: missing trailing columns become null",
+      "inputs": {
+        "cols": [ "employeeId", "firstName", "preferredName", "lastName", "hireDate", "termDate", "roles" ],
+        "record": [ "1003", "Ann" ],
+        "application": { "name": "HR CSV [source]" },
+        "schema": { "name": "account" }
+      },
+      "expect": { "employeeId": "1003", "firstName": "Ann", "preferredName": null, "lastName": null,
+                  "hireDate": null, "termDate": null, "roles": [] }
+    }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "cases": [
+    {
+      "name": "finance joiner: Finance OU, description, department group",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-1", "name": "jdoe", "attributes": { "department": "Finance", "title": "Analyst" } },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "operation": "Create", "attributeRequests": [] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Create", "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Finance,OU=Users,DC=example,DC=org" },
+        { "name": "pwdLastSet", "value": "0" },
+        { "name": "description", "value": "Analyst - Finance" },
+        { "name": "memberOf", "operation": "Add", "value": [ "CN=Finance Staff,OU=Groups,DC=example,DC=org" ] }
+      ] } ] } }
+    },
+    {
+      "name": "remote nurse also gets VPN",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-2", "name": "nrn", "attributes": { "department": " Nursing ", "title": "RN", "isRemote": "TRUE" } },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "operation": "Create", "attributeRequests": [] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Nursing,OU=Clinical,OU=Users,DC=example,DC=org" },
+        { "name": "pwdLastSet" },
+        { "name": "description", "value": "RN -  Nursing " },
+        { "name": "memberOf", "value": [ "CN=Nursing Staff,OU=Groups,DC=example,DC=org", "CN=VPN Users,OU=Groups,DC=example,DC=org" ] }
+      ] } ] } }
+    },
+    {
+      "name": "unknown department: Unassigned OU and a warning",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-3", "name": "x", "attributes": { "department": "Marketing", "title": "Lead" } },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "operation": "Create", "attributeRequests": [] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Unassigned,OU=Users,DC=example,DC=org" },
+        { "name": "pwdLastSet" },
+        { "name": "description" },
+        { "name": "memberOf" }
+      ] } ] } },
+      "expectLogContains": [ "No OU mapped for department 'Marketing'" ]
+    },
+    {
+      "name": "description already in the plan is kept",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-4", "name": "y", "attributes": { "department": "Engineering", "title": "Dev" } },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "operation": "Create",
+            "attributeRequests": [ { "name": "description", "operation": "Set", "value": "From access profile" } ] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [
+        { "name": "description", "value": "From access profile" },
+        { "name": "AC_NewParent", "value": "OU=Engineering,OU=Users,DC=example,DC=org" },
+        { "name": "pwdLastSet" },
+        { "name": "memberOf" }
+      ] } ] } }
+    },
+    {
+      "name": "no department: no group request at all",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-5", "name": "z", "attributes": {} },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "operation": "Create", "attributeRequests": [] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Unassigned,OU=Users,DC=example,DC=org" },
+        { "name": "pwdLastSet", "value": "0" }
+      ] } ] } }
+    },
+    {
+      "name": "modify requests are ignored",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-6", "name": "w", "attributes": { "department": "Finance", "title": "Analyst" } },
+          "accountRequests": [ { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=w", "operation": "Modify", "attributeRequests": [] } ]
+        },
+        "application": { "name": "Active Directory [source]" },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [] } ] } }
+    }
+  ]
+}

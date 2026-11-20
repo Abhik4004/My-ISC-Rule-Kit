@@ -1,0 +1,24 @@
+{
+  "cases": [
+    { "name": "terminated -> inactive",
+      "inputs": { "identity": { "name": "a", "attributes": { "hrStatus": "T" } }, "oldValue": "active", "idn": {} }, "expect": "inactive" },
+    { "name": "investigatory leave -> suspended",
+      "inputs": { "identity": { "name": "b", "attributes": { "hrStatus": "L", "leaveType": "Investigatory" } }, "oldValue": "active", "idn": {} }, "expect": "suspended" },
+    { "name": "medical leave -> leave",
+      "inputs": { "identity": { "name": "c", "attributes": { "hrStatus": "l", "leaveType": "medical" } }, "oldValue": "active", "idn": {} }, "expect": "leave" },
+    { "name": "active, hire date next week -> prehire",
+      "inputs": { "identity": { "name": "d", "attributes": { "hrStatus": "A", "hireDate": "2026-12-01", "asOfDate": "2026-11-20" } }, "oldValue": null, "idn": {} }, "expect": "prehire" },
+    { "name": "active, hired today -> active",
+      "inputs": { "identity": { "name": "e", "attributes": { "hrStatus": "A", "hireDate": "2026-11-20", "asOfDate": "2026-11-20" } }, "oldValue": "prehire", "idn": {} }, "expect": "active" },
+    { "name": "no HR status keeps the old value",
+      "inputs": { "identity": { "name": "f", "attributes": {} }, "oldValue": "leave", "idn": {} }, "expect": "leave" },
+    { "name": "no HR status and no old value -> unknown",
+      "inputs": { "identity": { "name": "g", "attributes": {} }, "oldValue": null, "idn": {} }, "expect": "unknown" },
+    { "name": "unknown status code keeps the old value and warns",
+      "inputs": { "identity": { "name": "h", "attributes": { "hrStatus": "X" } }, "oldValue": "active", "idn": {} },
+      "expect": "active", "expectLogContains": [ "Unknown HR status 'X' for h" ] },
+    { "name": "bad hire date is an error (shows how a crash is reported)",
+      "inputs": { "identity": { "name": "i", "attributes": { "hrStatus": "A", "hireDate": "12/01/2026", "asOfDate": "2026-11-20" } }, "oldValue": null, "idn": {} },
+      "expectError": "DateTimeParseException" }
+  ]
+}

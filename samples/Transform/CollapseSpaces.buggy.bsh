@@ -1,0 +1,11 @@
+// Transform rule: collapse runs of spaces in a value.
+//
+// BUGGY on purpose: String.replace returns a new string, and the result is thrown away,
+// so the loop never ends when the value has a double space. The tester stops it with a timeout.
+// Fix: value = value.replace("  ", " ");  (or value.replaceAll("\\s+", " ")).
+
+if (value == null) return null;
+while (value.contains("  ")) {
+    value.replace("  ", " ");
+}
+return value.trim();

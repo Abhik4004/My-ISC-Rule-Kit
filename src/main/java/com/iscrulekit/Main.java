@@ -61,6 +61,7 @@ public final class Main {
         if (args[0].equals("paste")) return run(RunPasted.toRunArgs(java.util.Arrays.copyOfRange(args, 1, args.length)), out, err);
         String cmd = args[0];
         Opts o = parseOpts(args);
+        if (cmd.equals("suite") && !hasOpt(args, "--timeout-ms")) o.timeoutMs = 3_000; // a stuck rule should not stall the whole suite
         if (o.watch) {
             if (!List.of("validate", "test", "check", "run").contains(cmd)) throw new UsageException("--watch works with validate, test, check and run");
             return watch(cmd, o, out, err);
@@ -76,6 +77,7 @@ public final class Main {
             case "export": return cmdExport(o, out);
             case "scaffold": return cmdScaffold(o, out);
             case "types": return cmdTypes(out);
+            case "suite": return cmdSuite(o, out);
             default: throw new UsageException("unknown command '" + cmd + "'");
         }
     }
@@ -145,6 +147,11 @@ public final class Main {
         if (!List.of("text", "json").contains(o.format)) throw new UsageException("--format must be text or json");
         if (!List.of("error", "warn").contains(o.failOn)) throw new UsageException("--fail-on must be error or warn");
         return o;
+    }
+
+    private static boolean hasOpt(String[] a, String opt) {
+        for (String s : a) if (s.equals(opt)) return true;
+        return false;
     }
 
     private static String value(String[] a, int i, String opt) {
@@ -271,6 +278,15 @@ public final class Main {
         return 0;
     }
 
+    private static int cmdSuite(Opts o, PrintStream out) throws IOException {
+        Path folder;
+        if (!o.positional.isEmpty()) folder = Path.of(o.positional.get(0));
+        else if (Files.isDirectory(Path.of("samples"))) folder = Path.of("samples");
+        else if (Files.isDirectory(Path.of("isc-rule-kit", "samples"))) folder = Path.of("isc-rule-kit", "samples");
+        else throw new UsageException("usage: suite <folder>   (no 'samples' folder here)");
+        return Suite.run(folder, o.timeoutMs, o.verbose, o.junit, out);
+    }
+
     private static int cmdTypes(PrintStream out) {
         for (RuleType t : RuleType.values()) {
             out.printf("%-32s %s%n    inputs : %s%n    returns: %s%n", t.xmlName, t.label, String.join(", ", t.inputs),
@@ -291,6 +307,9 @@ public final class Main {
                   iscrule run      <rule> [cases.json] [same options]     validate + test; with no cases file, a smoke run
                                                                           using default inputs for the rule type
                   iscrule paste    [same options]                         run paste-here/Rule.java (+ Rule.cases.json if present)
+                  iscrule suite    [folder] [--verbose] [--junit FILE]    validate + test every rule in a folder (default:
+                                                                          samples), one line per rule; Foo.java uses
+                                                                          Foo.cases.json; *.buggy.* files must be caught
                   (validate/test/check/run/paste accept --watch to re-run whenever the file is saved,
                    --verbose to expand every case, and --color / --no-color)
                   iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   produce ISC-ready rule XML

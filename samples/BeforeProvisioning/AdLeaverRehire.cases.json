@@ -1,0 +1,110 @@
+{
+  "cases": [
+    {
+      "name": "leaver with mailbox: Disabled OU, hidden, groups removed except Domain Users",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-1", "name": "jdoe", "attributes": { "cloudLifecycleState": "inactive", "employeeType": "employee" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=jdoe,OU=Users,DC=example,DC=org",
+              "operation": "Disable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory [source]", "attributes": { "environment": "Production" } },
+        "integration": null,
+        "idn": {
+          "getRawAccountAttribute": { "$byLastArg": {
+            "mail": "jdoe@example.org",
+            "memberOf": [ "CN=Domain Users,CN=Users,DC=example,DC=org", "CN=VPN,OU=Groups,DC=example,DC=org", "CN=Finance,OU=Groups,DC=example,DC=org" ]
+          } }
+        }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Disable", "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Disabled,DC=example,DC=org" },
+        { "name": "manager", "value": null },
+        { "name": "description", "value": "Disabled by ISC" },
+        { "name": "msExchHideFromAddressLists", "value": "true" },
+        { "name": "memberOf", "operation": "Remove", "value": [ "CN=VPN,OU=Groups,DC=example,DC=org", "CN=Finance,OU=Groups,DC=example,DC=org" ] }
+      ] } ] } },
+      "expectLogContains": [ "Leaver: disabling" ]
+    },
+    {
+      "name": "leaver without mailbox, only Domain Users: no hide, no group removal",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-2", "name": "asmith", "attributes": { "cloudLifecycleState": "inactive" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=asmith,OU=Users,DC=test,DC=example,DC=org",
+              "operation": "Disable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory [source]", "attributes": { "environment": "Sandbox" } },
+        "integration": null,
+        "idn": {
+          "getRawAccountAttribute": { "$byLastArg": { "memberOf": "CN=Domain Users,CN=Users,DC=example,DC=org" }, "$default": null }
+        }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Disable", "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Disabled,DC=test,DC=example,DC=org" },
+        { "name": "manager" },
+        { "name": "description", "value": "Disabled by ISC" }
+      ] } ] } }
+    },
+    {
+      "name": "rehire of an employee: back to Users OU, description cleared",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-3", "name": "bkim", "attributes": { "cloudLifecycleState": "active", "employeeType": "employee" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=bkim,OU=Disabled,DC=example,DC=org",
+              "operation": "Enable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory [source]", "attributes": { "environment": "Production" } },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable", "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Users,DC=example,DC=org" },
+        { "name": "description", "value": "" }
+      ] } ] } }
+    },
+    {
+      "name": "rehire of a contractor: Contractors OU",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-4", "name": "cvendor", "attributes": { "cloudLifecycleState": "active", "employeeType": "Contractor" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=cvendor,OU=Disabled,DC=example,DC=org",
+              "operation": "Enable", "attributeRequests": [] }
+          ]
+        },
+        "application": { "name": "Active Directory [source]", "attributes": { "environment": "Production" } },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [
+        { "name": "AC_NewParent", "value": "OU=Contractors,DC=example,DC=org" },
+        { "name": "description" }
+      ] } ] } }
+    },
+    {
+      "name": "modify is left alone",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "id-5", "name": "dlee", "attributes": { "cloudLifecycleState": "active" } },
+          "accountRequests": [
+            { "applicationName": "Active Directory [source]", "nativeIdentity": "CN=dlee,OU=Users,DC=example,DC=org",
+              "operation": "Modify", "attributeRequests": [ { "name": "title", "operation": "Set", "value": "Manager" } ] }
+          ]
+        },
+        "application": { "name": "Active Directory [source]", "attributes": { "environment": "Production" } },
+        "integration": null,
+        "idn": {}
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [
+        { "name": "title", "operation": "Set", "value": "Manager" }
+      ] } ] } }
+    }
+  ]
+}

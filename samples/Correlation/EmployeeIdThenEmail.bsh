@@ -1,0 +1,29 @@
+// Correlation rule: HR / badge system accounts.
+//
+// 1. Correlate on employeeNumber, using the account's employeeId with leading zeros removed.
+// 2. If there is no employee id, fall back to the work email (lowercased).
+// 3. Service and test accounts (id starting with "svc_" or "test") are never correlated.
+import java.util.HashMap;
+import java.util.Map;
+
+Map returnMap = new HashMap();
+String accountId = account.getIdentity();
+if (accountId != null && (accountId.toLowerCase().startsWith("svc_") || accountId.toLowerCase().startsWith("test"))) {
+    log.debug("Skipping non-person account " + accountId);
+    return returnMap;
+}
+
+String empId = account.getStringAttribute("employeeId");
+if (empId != null && !empId.trim().isEmpty()) {
+    String normalized = empId.trim().replaceFirst("^0+(?!$)", "");
+    returnMap.put("identityAttributeName", "employeeNumber");
+    returnMap.put("identityAttributeValue", normalized);
+    return returnMap;
+}
+
+String email = account.getStringAttribute("email");
+if (email != null && email.contains("@")) {
+    returnMap.put("identityAttributeName", "email");
+    returnMap.put("identityAttributeValue", email.trim().toLowerCase());
+}
+return returnMap;

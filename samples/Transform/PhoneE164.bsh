@@ -1,0 +1,24 @@
+// Transform rule: normalise a phone number to E.164 (+<country><number>).
+// Input variables: value (the raw number) and defaultCountry (calling code without "+", default "1").
+// Extensions ("x123", "ext. 123") are dropped. Returns null when the number is unusable.
+
+if (value == null) return null;
+String cc = (defaultCountry == void || defaultCountry == null) ? "1" : defaultCountry.toString();
+
+String v = value.toString().trim().replaceAll("(?i)\\s*(x|ext\\.?)\\s*\\d+$", "");
+boolean international = v.startsWith("+") || v.startsWith("00");
+String digits = v.replaceAll("\\D", "");
+if (v.startsWith("00")) digits = digits.substring(2);
+
+if (international) {
+    return digits.length() >= 8 && digits.length() <= 15 ? "+" + digits : null;
+}
+if ("1".equals(cc)) {
+    if (digits.length() == 11 && digits.startsWith("1")) digits = digits.substring(1);
+    if (digits.length() != 10) {
+        log.debug("Not a valid NANP number: " + value);
+        return null;
+    }
+}
+digits = digits.replaceFirst("^0+", "");
+return "+" + cc + digits;
