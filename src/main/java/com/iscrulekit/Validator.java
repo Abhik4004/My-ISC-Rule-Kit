@@ -67,6 +67,7 @@ public final class Validator {
     private static final Pattern STRING_EQ = Pattern.compile("[=!]=\\s*\"|\"\\s*[=!]=(?!=)");
     /** String.valueOf(...) whose argument reads an attribute or map entry, which may be null. */
     private static final Pattern VALUEOF_NULL = Pattern.compile("String\\s*\\.\\s*valueOf\\s*\\(\\s*[\\w.]*\\b(getAttribute\\w*|getStringAttribute\\w*|getRawAccountAttribute|get)\\s*\\(");
+    private static final Pattern SET_MAP = Pattern.compile("\\.\\s*setMap\\s*\\(");
     private static final Pattern HARDCODED = Pattern.compile(
             "\\b(pass(word|wd)?|pwd|secret|api[_-]?key|token|client_?secret)\\w*\\s*=\\s*\"[^\"]+\"", Pattern.CASE_INSENSITIVE);
     private static final Pattern GENERICS = Pattern.compile("\\b[A-Z]\\w*\\s*<\\s*[A-Z?]\\w*(\\s*,\\s*[A-Z?]\\w*)*\\s*>");
@@ -79,6 +80,45 @@ public final class Validator {
     public static List<Finding> validate(ParsedRule p) { return new Validator(p).run(); }
 
     private void add(Severity s, String code, Integer line, String msg) { out.add(new Finding(s, code, line, msg)); }
+
+    /**
+     * BUG003: {@code a && b || c} without brackets. Java evaluates {@code &&} first, which is rarely what the author meant
+     * (e.g. {@code active && x.isEmpty() || "false".equals(x)} lets inactive users through). Checked per bracket level,
+     * per argument and per statement, on the source with strings and comments blanked out.
+     */
+    private record AndOrGroup(int start, boolean[] seen) {}
+
+    private void mixedAndOr(String blank) {
+        java.util.ArrayDeque<AndOrGroup> stack = new java.util.ArrayDeque<>();
+        stack.push(new AndOrGroup(0, new boolean[2]));
+        java.util.Set<Integer> reported = new java.util.HashSet<>();
+        for (int i = 0; i < blank.length(); i++) {
+            char c = blank.charAt(i);
+            AndOrGroup g = stack.peek();
+            boolean pair = i + 1 < blank.length() && blank.charAt(i + 1) == c;
+            if (c == '&' && pair) { g.seen()[0] = true; i++; }
+            else if (c == '|' && pair) { g.seen()[1] = true; i++; }
+            else if (c == '(') stack.push(new AndOrGroup(i, new boolean[2]));
+            else if (c == ')' && stack.size() > 1) reportMixed(blank, stack.pop(), reported);
+            else if (c == ',' || c == ';' || c == '{' || c == '}' || c == '?' || (c == ':' && stack.size() > 1)) {
+                reportMixed(blank, g, reported); // each argument / statement / ternary part is checked on its own
+                stack.pop();
+                stack.push(new AndOrGroup(i + 1, new boolean[2]));
+            }
+        }
+        while (!stack.isEmpty()) reportMixed(blank, stack.pop(), reported);
+    }
+
+    private void reportMixed(String blank, AndOrGroup g, java.util.Set<Integer> reported) {
+        if (!g.seen()[0] || !g.seen()[1]) return;
+        int at = g.start();
+        while (at < blank.length() - 1 && Character.isWhitespace(blank.charAt(at))) at++; // first character of the statement
+        int line = Scan.lineOf(blank, at);
+        if (!reported.add(line)) return;
+        add(Severity.WARN, "BUG003", L(line), "&& and || mixed without brackets. && is evaluated first, so 'a && b || c' means "
+                + "'(a && b) || c', and c alone is enough to make it true. Add brackets to say what you mean, "
+                + "e.g. a && (b || c).");
+    }
 
     private List<Finding> run() {
         out.addAll(p.findings);
@@ -110,6 +150,7 @@ public final class Validator {
         syntax(toks, blank, lines, src);
         restrictions(lines);
         guidelines(toks, blank, lines, ncl);
+        mixedAndOr(blank);
         methods(blank, u);
         typeSpecific(blank, lines, src);
         return finish();
@@ -255,6 +296,9 @@ public final class Validator {
             if (STRING_EQ.matcher(ncl[i]).find())
                 add(Severity.WARN, "BUG001", L(i + 1), "String compared with == or !=. That checks whether both are the same object, not the same text, "
                         + "so it is usually false for values read from identities or accounts. Use \"text\".equals(x) or equalsIgnoreCase().");
+            if (SET_MAP.matcher(ncl[i]).find())
+                add(Severity.WARN, "API001", L(i + 1), "setMap(...) is not in SailPoint's published rule API for Attributes (the RDK's class stubs "
+                        + "do not have it), so RDK tests fail with 'Method setMap not found'. Use putAll(map), which does the same thing.");
             if (VALUEOF_NULL.matcher(ncl[i]).find())
                 add(Severity.WARN, "BUG002", L(i + 1), "String.valueOf(...) on a value that can be null. In BeanShell String.valueOf(null) throws "
                         + "NullPointerException (it picks valueOf(char[])). Null-check first, or use \"\" + x.");

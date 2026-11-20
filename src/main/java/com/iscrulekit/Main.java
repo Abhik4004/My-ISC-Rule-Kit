@@ -30,10 +30,10 @@ public final class Main {
 
     private static final class Opts {
         final List<String> positional = new ArrayList<>();
-        String type, format = "text", failOn = "error", junit, out, name, desc;
+        String type, format = "text", failOn = "error", junit, out, name, desc, rdk;
         long timeoutMs = 10_000;
         int max = 40;
-        boolean strictMocks, verbose, watch, record;
+        boolean strictMocks, verbose, watch, record, force, noRun;
     }
 
     public static void main(String[] args) {
@@ -83,6 +83,10 @@ public final class Main {
             case "add-test", "addtest", "wizard": return cmdAddTest(o, out);
             case "gen", "generate": return cmdGen(o, out);
             case "new": return cmdNew(o, out);
+            case "import": return cmdImport(o, out);
+            case "rdk": return cmdRdk(o, out);
+            case "junit-gen": return cmdJUnitGen(o, out);
+            case "junit": return JUnitRunner.run(Path.of(o.positional.isEmpty() ? (Files.isDirectory(Path.of("rules")) ? "rules" : ".") : o.positional.get(0)), out);
             default: throw new UsageException("unknown command '" + cmd + "'");
         }
     }
@@ -140,6 +144,9 @@ public final class Main {
                 }
                 case "--strict-mocks" -> o.strictMocks = true;
                 case "--record" -> o.record = true;
+                case "--force" -> o.force = true;
+                case "--no-run" -> o.noRun = true;
+                case "--rdk" -> o.rdk = value(a, ++i, s);
                 case "--dir" -> o.out = value(a, ++i, s);
                 case "--max" -> {
                     try { o.max = Integer.parseInt(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--max needs a number"); }
@@ -251,17 +258,16 @@ public final class Main {
     private static int cmdExport(Opts o, PrintStream out) throws IOException {
         RuleLoader.Loaded l = load(o);
         ParsedRule p = l.rule();
-        ClassUnwrapper.Result u = ClassUnwrapper.unwrap(p.source, p.type == null ? List.of() : p.type.inputs);
-        String ruleName = o.name != null ? o.name : !p.name.isEmpty() ? p.name : u.className().isEmpty() ? "My Rule" : u.className();
-        String xml = RuleXml.build(ruleName, p.type, o.desc != null ? o.desc : p.description, ClassUnwrapper.tidy(u.source()));
+        RuleXml.Built b = RuleXml.fromRule(p, o.name, o.desc);
+        ClassUnwrapper.Result u = b.unwrap();
         if (o.out != null) {
-            Files.writeString(Path.of(o.out), xml, StandardCharsets.UTF_8);
+            Files.writeString(Path.of(o.out), b.xml(), StandardCharsets.UTF_8);
             out.println("Wrote " + o.out);
             if (!u.removed().isEmpty() || u.wrapped())
                 out.println("Stripped " + (u.wrapped() ? "class wrapper '" + u.className() + "'" : "") + (u.removed().isEmpty() ? "" : " and " + u.removed().size() + " re-declared input(s)") + ".");
-            out.println("Suggested file name: " + RuleXml.fileName(p.type, ruleName));
+            out.println("Suggested file name: " + RuleXml.fileName(p.type, b.name()));
         } else {
-            out.print(xml);
+            out.print(b.xml());
         }
         return 0;
     }
@@ -329,6 +335,31 @@ public final class Main {
         return 0;
     }
 
+    private static int cmdImport(Opts o, PrintStream out) throws IOException {
+        if (o.positional.isEmpty()) throw new UsageException("usage: import <rule.xml | rules.json> [--dir rules] [--force]");
+        Path file = Path.of(o.positional.get(0));
+        if (!Files.isRegularFile(file)) throw new UsageException("file not found: " + file);
+        return Importer.run(file, Path.of(o.out != null ? o.out : "rules"), o.force, o.timeoutMs, out);
+    }
+
+    private static int cmdRdk(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = o.positional.size() > 1 ? Path.of(o.positional.get(1)) : null;
+        RuleType t = o.type == null ? null : RuleType.fromName(o.type).orElseThrow(() -> new UsageException("unknown rule type '" + o.type + "'"));
+        return Rdk.run(rule, cases, t, o.rdk, o.name, o.noRun, o.force, o.timeoutMs, out);
+    }
+
+    private static int cmdJUnitGen(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = casesPath(o, rule);
+        if (!Files.exists(cases)) throw new UsageException(cases + " does not exist yet. Create cases first: iscrule add-test " + rule + "   or   iscrule gen " + rule + " --record");
+        RuleLoader.Loaded l = load(o);
+        Path test = JUnitGen.write(rule, cases, l.rule().type);
+        out.println("Wrote " + test + " (" + TestSuite.load(cases).size() + " tests from " + cases.getFileName() + ")");
+        out.println("Run it:  iscrule junit " + test);
+        return 0;
+    }
+
     private static int cmdNew(Opts o, PrintStream out) throws IOException {
         if (o.positional.size() < 2) throw new UsageException("usage: new <type> <Name> [--dir folder]   (types: iscrule types)");
         RuleType t = RuleType.fromName(o.positional.get(0)).orElseThrow(() -> new UsageException("unknown rule type '" + o.positional.get(0) + "' (see: iscrule types)"));
@@ -383,6 +414,20 @@ public final class Main {
                                                                           rule checks; --record saves results as checks
                   iscrule analyze  [rule]                                 what the rule reads and the values it checks
                   iscrule new      <type> <Name> [--dir rules]            start a new rule from a template
+
+                SAILPOINT RULE DEVELOPMENT KIT (RDK)
+                  iscrule rdk      [rule | rule.xml] [cases] [--name N] [--rdk folder] [--no-run] [--force]
+                                                                          validate, write the deployable XML and an RDK
+                                                                          JUnit 5 + Mockito test class into the RDK, run
+                                                                          mvn test there, print one line per test
+
+                FROM ISC EXPORTS (kit style: one rule file + cases + JUnit test class per rule)
+                  iscrule import   <rule.xml | rules.json> [--dir rules] [--force]
+                                                                          extract the code of every rule in the file into
+                                                                          rules/<Type>/<Name>.java, generate cases with
+                                                                          today's results, and write <Name>Test.java
+                  iscrule junit-gen [rule] [cases]                        (re)write <Name>Test.java from the cases file
+                  iscrule junit    [folder|Test.java]                     compile and run the JUnit test classes
 
                   iscrule scaffold <type>                                 print a starter cases.json
                   iscrule types                                           list rule types and their inputs

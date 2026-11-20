@@ -76,7 +76,7 @@ final class Suite {
 
     private static boolean isRule(Path p) {
         String n = p.getFileName().toString().toLowerCase();
-        if (n.endsWith(".cases.json")) return false;
+        if (n.endsWith(".cases.json") || JUnitGen.isTestFile(p)) return false;
         return n.endsWith(".java") || n.endsWith(".bsh") || n.endsWith(".xml");
     }
 

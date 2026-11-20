@@ -68,7 +68,10 @@ final class CaseWizard {
         List<String> v = new ArrayList<>();
         for (String x : s.values) v.add(x.isEmpty() ? "(empty)" : "\"" + x + "\"");
         String kind = s.list ? "list containing " : "";
-        return v.isEmpty() ? "any value" : kind + String.join(", ", v);
+        List<String> all = new ArrayList<>();
+        if (!v.isEmpty()) all.add(kind + String.join(", ", v));
+        all.addAll(s.patterns);
+        return all.isEmpty() ? "any value" : String.join("; ", all);
     }
 
     // ===============================================================================================================
@@ -197,7 +200,10 @@ final class CaseWizard {
         String d = dflt == null || dflt.isNull() ? "" : dflt.isArray() ? join(dflt) : dflt.asText();
         List<String> opts = new ArrayList<>();
         if (s.bool) opts = List.of("true", "false");
-        else for (String v : s.values) opts.add(v);
+        else {
+            for (String v : s.values) opts.add(v);
+            for (String v : s.patternValues) if (!opts.contains(v)) opts.add(v);
+        }
         String label = s.label() + (s.list ? Ansi.dim(" (a list: separate values with ;)") : "");
         String answer = opts.isEmpty() ? ask.text(label, d) : ask.choose(label, opts, d, true);
         return CaseBuilder.typed(s, answer);
@@ -359,6 +365,7 @@ final class CaseWizard {
         }
         for (Slot s : deciding) {
             List<String> alts = new ArrayList<>(s.values);
+            for (String v : s.patternValues) if (!alts.contains(v)) alts.add(v);
             if (s.bool) alts = List.of("true", "false");
             for (String v : alts) {
                 JsonNode jv = CaseBuilder.typed(s, s.list ? v : v);

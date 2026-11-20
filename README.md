@@ -1,318 +1,346 @@
-# ISC Rule Kit
+# My-ISC-Rule-Kit
 
-A pure-Java, command-line **validator and tester for SailPoint Identity Security Cloud (ISC) rules**. No UI, no server:
-paste or pipe a rule in, get validation findings and test results out. Rules run on the **real BeanShell 2.0b6
-interpreter** (the engine ISC rules use), against mock ISC objects built from JSON test cases.
+Test SailPoint Identity Security Cloud (ISC) rules on your own computer before you deploy them.
 
-> **This is not SailPoint's official Rule Validator (`sp-rv`) or the Rule Development Kit.** The checks come from the
-> public ISC rule guidelines and code restrictions. Always run the official validator and SailPoint's review process
-> before deploying. See [Limits](#limits).
+* **Checks** your rule for mistakes, such as blocked calls, undefined methods, `==` on strings, and `&&` / `||` without brackets.
+* **Runs** your rule on the same BeanShell engine ISC uses, with test data you choose.
+* **Writes the tests for you**: it asks what you want to test, or imports a rule XML and generates JUnit tests.
 
-## The short version: paste, answer a few questions, done
+No server, no ISC tenant, and no setup beyond Java. Everything runs from a terminal in this folder.
+
+> This is not SailPoint's official Rule Validator or Rule Development Kit. Run SailPoint's validator and review
+> process before deploying.
+
+---
+
+## 1. One-time setup
+
+You need **Java 17 or newer** (a JDK, not just a JRE). Check it with:
 
 ```powershell
-# 1. paste your rule into paste-here\Rule.java and save
-.\iscrule.cmd add-test      # 2. asks what you want to test, runs the rule, shows the result, asks "is this right?"
-.\iscrule.cmd paste         # 3. runs every saved test case (add --watch to re-run on every save)
+java -version
 ```
 
-`add-test` reads your rule first, so its questions use **the values your rule actually checks**. For a
-BeforeProvisioning rule that does `"inactive".equalsIgnoreCase(cloudLifecycleState)` and
-`memberOfValue.equalsIgnoreCase(BIRTHRIGHT_GROUP)`, you get:
+Open a terminal **in this folder** and build the kit:
+
+```powershell
+powershell -File scripts\build-offline.ps1
+```
+
+You should see `Built ... Run: .\iscrule.cmd help`. Run the build again whenever you get a newer copy of the `src`
+folder. Every command below starts with `.\iscrule.cmd`.
+
+---
+
+## 2. Pick how you want to start
+
+| You have... | Go to |
+|---|---|
+| Rule code you can copy and paste | [3. Paste a rule and test it](#3-paste-a-rule-and-test-it) |
+| A rule XML exported from ISC, or JSON from the API | [4. Import a rule XML](#4-import-a-rule-xml) |
+| Nothing yet, and you want to write a new rule | [5. Start a new rule](#5-start-a-new-rule) |
+| A rule that is ready, and you want SailPoint's own test setup before deploying | [RDK. Test in SailPoint's Rule Development Kit](#rdk-test-in-sailpoints-rule-development-kit) |
+
+---
+
+## 3. Paste a rule and test it
+
+**Step 1: Paste.** Open `paste-here\Rule.java`, replace everything in it with your rule, and save. Plain BeanShell,
+a `public class X { ... }` file, or a full `<Rule>` XML all work.
+
+**Step 2: Check and run it.**
+
+```powershell
+.\iscrule.cmd paste
+```
+
+You get a **VALIDATION** section listing problems in the code, then a **TESTS** section. With no test cases yet,
+the rule runs once with sample data. That shows whether it crashes, but not whether it does the right thing.
+
+**Step 3: Create a test case by answering questions.**
+
+```powershell
+.\iscrule.cmd add-test
+```
+
+The kit reads your rule first, so its suggestions are the values your rule actually checks:
 
 ```text
 Operation
-   1) Disable   2) Enable   3) Modify ...              number [Modify]:
-  Attribute name   1) memberOf                         [memberOf]:
-  Operation        1) Add  2) Remove  3) Set           [Add]:
-  Value            1) CN=DualAuthUsersMedCtr,...,DC=ql1,...   2) CN=DualAuthUsersMedCtr,...,DC=ucsfmedicalcenter,...
-identity attribute cloudLifecycleState   1) inactive  2) active            [active]:
-idn.getRawAccountAttribute("brb")        1) true  2) false  3) (empty)     [false]:
-...
+   1) Disable
+   2) Enable
+   3) Modify
+   number [Modify]:                         <- press Enter to accept the [default]
+identity attribute cloudLifecycleState
+   1) inactive
+   2) active
+   number or your own value [active]: 1     <- or type a number to pick a suggestion
+idn.getRawAccountAttribute("brb")
+   1) true
+   2) false
+   3) (empty)
+   number or your own value [false]:        <- or type any value of your own
+```
+
+* **Enter** keeps the value in `[brackets]`.
+* **A number** picks a suggestion.
+* **Anything else** is used exactly as you typed it.
+* **Several values** (a list of groups, say) go in one answer separated by `;`.
+
+The kit then runs the rule and shows what happened:
+
+```text
 RESULT OF THE RUN
-  plan.accountRequests[0].operation: "Modify"  ->  "Enable"
-  + plan.accountRequests[0].attributeRequests: AC_NewParent Set "OU=MedCenterUsers,..."
+  What the rule changed
+    plan.accountRequests[0].operation: "Modify"  ->  "Enable"
+    + plan.accountRequests[0].attributeRequests: AC_NewParent Set "OU=MedCenterUsers,..."
 Is this what the rule should do?
    1) yes - save it as the expected result
-   2) no - I will say what should happen       (saves your expectation, so the case fails until the rule is fixed)
+   2) no - I will say what should happen
    3) save the inputs only, no check
 ```
 
-Press Enter to take a default, type a number to pick a suggestion, or type any value. For several values in one
-answer (a list of groups), separate them with `;`. The case lands in `Rule.cases.json` next to the rule, and
-anything you have written there by hand is kept as it is.
+* **1 (yes)** when the result is right. From now on the case fails if the rule ever behaves differently.
+* **2 (no)** when the result is wrong. You type what should happen, and the case fails until the rule is fixed.
 
-| Command | What it does |
+Then give the case a name (Enter accepts the suggested one). The case is saved in `paste-here\Rule.cases.json`.
+
+**Step 4: Run all your cases** whenever you change the rule:
+
+```powershell
+.\iscrule.cmd paste
+```
+
+Add `--watch` to re-run automatically every time you save `Rule.java`. Press Ctrl+C to stop.
+
+> `Rule.cases.json` belongs to the rule you pasted. When you paste a **different** rule, delete or rename that file
+> first.
+
+---
+
+## 4. Import a rule XML
+
+**Step 1:** Save the exported file in the `imports` folder, for example `imports\MyRule.xml`. These all work:
+
+* a single `<Rule>` file;
+* a file with several rules in it (`<sailpoint>...</sailpoint>`);
+* the JSON the ISC API returns (`name`, `type`, `sourceCode.script`).
+
+**Step 2: Import it.**
+
+```powershell
+.\iscrule.cmd import imports\MyRule.xml
+```
+
+For each rule in the file you get three new files in `rules\<RuleType>\`:
+
+```text
+rules\BeforeProvisioning\MyRule.java          the rule code, taken out of the XML
+rules\BeforeProvisioning\MyRule.cases.json    about 20 test cases, generated for you
+rules\BeforeProvisioning\MyRuleTest.java      a JUnit test class, one test per case
+```
+
+The import also prints how many validation problems the rule has, and how many test cases made it crash.
+
+**Step 3: Run the tests.**
+
+```powershell
+.\iscrule.cmd junit rules
+```
+
+```text
+  MyRuleTest
+    PASS  test01_baselineModifyMemberOfAdd...
+    PASS  test02_operationDisable
+    ...
+RESULT  18 passed  (18 tests)
+```
+
+**What these tests tell you.** The generated cases record what the rule does **today**, bugs included. They are a
+safety net: when you change the rule, any test that fails shows behaviour you changed, for example
+`expected "Enable", got "Modify"`. To test what the rule *should* do, add your own cases:
+
+```powershell
+.\iscrule.cmd add-test rules\BeforeProvisioning\MyRule.java
+.\iscrule.cmd junit-gen rules\BeforeProvisioning\MyRule.java     # puts the new case into MyRuleTest.java too
+```
+
+**Step 4: Turn the code back into XML** when you have finished editing:
+
+```powershell
+.\iscrule.cmd export rules\BeforeProvisioning\MyRule.java -o "Rule - BeforeProvisioning - MyRule.xml"
+```
+
+The XML keeps the original rule name, type and description.
+
+---
+
+## 5. Start a new rule
+
+```powershell
+.\iscrule.cmd types                                   # lists the rule types
+.\iscrule.cmd new BeforeProvisioning MyNewRule        # creates rules\BeforeProvisioning\MyNewRule.java
+```
+
+The new file explains which inputs ISC gives the rule and what it must return. Write your logic, then follow
+[section 3](#3-paste-a-rule-and-test-it) with the file name added:
+
+```powershell
+.\iscrule.cmd add-test rules\BeforeProvisioning\MyNewRule.java
+.\iscrule.cmd run rules\BeforeProvisioning\MyNewRule.java rules\BeforeProvisioning\MyNewRule.cases.json
+```
+
+---
+
+## RDK. Test in SailPoint's Rule Development Kit
+
+The kit's own runner uses small stand-ins for SailPoint's classes. SailPoint's **Rule Development Kit (RDK)** uses
+SailPoint's real classes, with JUnit 5 and Mockito. One command puts your rule into the RDK, writes the tests and
+runs them there:
+
+```powershell
+.\iscrule.cmd rdk                                   # the rule in paste-here\Rule.java
+.\iscrule.cmd rdk imports\MyRule.xml                # or an exported rule XML
+.\iscrule.cmd rdk rules\BeforeProvisioning\MyRule.java
+```
+
+```text
+RDK  imports\MyRule.xml  ->  D:\...\rule-development-kit
+
+  validation  0 errors, 8 warnings
+  rule XML    src\main\resources\rules\Rule - BeforeProvisioning - My Rule.xml   (this is the file you deploy)
+  test cases  imports\MyRule.cases.json   (18)
+  test class  src\test\java\sailpoint\MyRuleTest.java   (18 @Test methods)
+
+  mvn test    -Dtest=MyRuleTest
+    PASS  test01_baselineModifyMemberOfAdd...
+    PASS  test02_operationDisable
+    ...
+RESULT  18 passed  (18 RDK tests)
+
+Ready to deploy: ...\src\main\resources\rules\Rule - BeforeProvisioning - My Rule.xml
+```
+
+What it does, in order:
+
+1. **Validates** the rule, showing errors and likely bugs.
+2. **Writes the deployable XML** into the RDK's `src/main/resources/rules/`. The name, type, DOCTYPE and CDATA are
+   all set, so this is the file you upload to ISC.
+3. **Uses the rule's test cases**: `Rule.cases.json` next to the rule, or a cases file you name as the second
+   argument. With no cases file it generates one, recording what the rule does today.
+4. **Writes an RDK test class** to `src/test/java/sailpoint/<Name>Test.java`, in the same style as SailPoint's
+   examples. `idn`, `Identity` and `Application` are Mockito mocks, `ProvisioningPlan` and `AccountRequest` are
+   SailPoint's real classes, and the rule is read from the XML with `RuleXmlUtils` and run on a BeanShell
+   `Interpreter`.
+5. **Runs `mvn test`** for that class and shows one line per test. It ends with **Ready to deploy** when everything
+   passes and validation has no errors.
+
+Pasted code has no rule name, so `rdk` asks for one (or pass `--name "My Rule"`). Add your own cases with
+`add-test` and run `rdk` again. The test class is regenerated each time, unless you edited it by hand (see the
+comment at its top). `--no-run` only writes the files.
+
+**One-time RDK setup**
+
+1. Clone the RDK **next to this folder**:
+   `git clone https://github.com/sailpoint-oss/rule-development-kit.git`. Or pass `--rdk <folder>`, or set
+   `ISC_RDK`.
+2. Install **Maven 3.9+**, or unzip it into a `tools` folder next to the RDK. The first run downloads the test
+   libraries.
+3. **If your Java is newer than 17:** SailPoint's `pom.xml` pins Mockito 5.2.0, which fails with
+   `Mockito cannot mock this class`. Use the updated `pom.xml` in this setup (Mockito 5.20.0, Byte Buddy 1.17.7).
+   It runs on Java 17 through 25.
+
+> **Methods SailPoint's classes don't have.** RDK tests fail with `Method setMap( java.util.HashMap ) not found in
+> class 'sailpoint.object.Attributes'` when a rule uses a method that isn't in SailPoint's published rule API. The
+> kit's own runner can't catch this, which is the main reason to also test in the RDK. `validate` now warns about
+> `setMap` (API001); use `putAll(map)` instead.
+
+---
+
+## 6. Reading the results
+
+```text
+VALIDATION  0 errors, 6 warnings, 9 notes
+  WARN   line 417  BUG003
+         && and || mixed without brackets. ...
+TESTS  17 cases
+  PASS   01 Add Birthright, active staff -> Enable + Regular Users OU
+  FAIL   14 Remove Birthright + another group for a student
+         Why it failed
+             plan.accountRequests[0].attributeRequests: expected 2 items, got 1 item
+         What the rule changed
+           - ...: memberOf Remove [...]                 (- removed, + added, old -> new)
+         Log
+           DEBUG ...                                    (the rule's own log lines)
+RESULT  14 passed, 3 failed  (17 cases)
+```
+
+| You see | It means |
 |---|---|
-| `iscrule analyze [rule]` | Lists what the rule reads and the values it compares them with, without running it. |
-| `iscrule add-test [rule] [cases]` | The interactive wizard above. |
-| `iscrule gen [rule] [cases]` | Writes a baseline case plus one case per value the rule checks (`brb=true`, `operation Disable`, ...). Add `--record` to save each run's result as its expected result. Review those: a recorded bug is still a bug. `--max N` limits the number of cases (default 40). |
-| `iscrule new <type> <Name> [--dir rules]` | Starts a rule from a template in `rules/<type>/<Name>.java`, like the RDK's starter project but with nothing to set up. Then `add-test` it, `suite rules` to run everything, `export` to get the XML. |
+| `ERROR` in validation | The rule would probably fail in ISC, or be rejected. Fix it. |
+| `WARN` in validation | Likely a bug or a guideline problem. Read the message. |
+| `PASS` | The rule did what the case expects. |
+| `FAIL` | The rule ran but did something else. "Why it failed" names the exact field. |
+| `ERROR` in a test | The rule crashed. You get the line number and a hint. |
+| `RAN` | The rule ran, but the case has nothing to check. Use `add-test` to give it an expected result. |
+| `NOT MOCKED: idn.someMethod(...)` | The rule called an `idn` method the case gives no answer for (it got `null`). Add it under `"idn"` in the cases file. |
 
-With no `[rule]`, these use `paste-here/Rule.java`. Rules can be in any folder, and `<type>` comes from `iscrule types`.
+Add `--verbose` to any command to see everything: passing cases in full, every log line and every value.
 
-`gen` is a good first pass on someone else's rule. On the UCSFMC Before Provisioning rule it found a crash in one
-of 18 generated cases: adding the *Production* Birthright DN while the source is set to Sandbox makes the rule treat
-it as an ordinary group, and the run reaches the undefined `getSourceAttributeBySourceName`.
+---
 
-## Build
+## 7. Cheat sheet
 
-Needs JDK 17+.
+| I want to... | Command |
+|---|---|
+| Check and run the pasted rule | `.\iscrule.cmd paste` |
+| Re-run every time I save | `.\iscrule.cmd paste --watch` |
+| Add a test case by answering questions | `.\iscrule.cmd add-test [rule file]` |
+| Generate many test cases automatically | `.\iscrule.cmd gen [rule file] --record` |
+| See what a rule depends on | `.\iscrule.cmd analyze [rule file]` |
+| Only check the code, without running it | `.\iscrule.cmd validate <rule file>` |
+| Run one rule against its cases | `.\iscrule.cmd run <rule file> <cases file>` |
+| Import an ISC export | `.\iscrule.cmd import <file.xml or .json>` |
+| Run JUnit tests | `.\iscrule.cmd junit rules` |
+| Run every rule in a folder | `.\iscrule.cmd suite rules` |
+| Start a new rule | `.\iscrule.cmd new <Type> <Name>` |
+| Test in SailPoint's RDK and get the deployable XML | `.\iscrule.cmd rdk [rule file or XML]` |
+| Get the XML to upload to ISC | `.\iscrule.cmd export <rule file> -o <out.xml>` |
+| See all commands | `.\iscrule.cmd help` |
 
-```powershell
-mvn -q package                                   # -> target/isc-rule-kit.jar   (see note below)
-# or, without Maven (uses jars from ~/.m2 or ./lib):
-powershell -File scripts\build-offline.ps1       # -> target/classes
-```
+`[rule file]` is optional. Without it, the command uses `paste-here\Rule.java`.
 
-Run with `iscrule.cmd` (Windows), or `java -jar target/isc-rule-kit.jar <command>`.
+---
 
-> The `javac` build was verified. The Maven `pom.xml` (compiler + shade plugin, fat jar) could not be run in the
-> offline environment this was written in, so run `mvn package` once and tell me if it needs a tweak.
+## 8. Common problems
 
-## Commands
+**"Not built yet" or `iscrule.cmd` is not recognised.** Run the build from section 1. Make sure the terminal is
+in this folder.
 
-```text
-iscrule validate <rule> [--type T] [--format text|json] [--fail-on error|warn]
-iscrule test     <rule> <cases.json> [--type T] [--timeout-ms N] [--format text|json]
-                                     [--junit FILE] [--strict-mocks] [--verbose]
-iscrule check    <rule> <cases.json> [same options]        validate, then test
-iscrule run      <rule> [cases.json] [same options]        validate + test; with no cases file: smoke run (see below)
-iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   ISC-ready rule XML
-iscrule scaffold <type>                                    starter cases.json for a rule type
-iscrule types                                              rule types, their inputs and return contract
-iscrule suite    [folder] [--verbose] [--junit FILE]       validate + test every rule in a folder (default: samples)
-iscrule analyze  [rule]                                    what the rule reads and the values it checks
-iscrule add-test [rule] [cases]                            interactive: build a test case, run it, approve, save
-iscrule gen      [rule] [cases] [--record] [--max N]       generate test variations
-iscrule new      <type> <Name> [--dir rules]               new rule from a template
-```
+**"could not tell the rule type".** Add `--type BeforeProvisioning` (or whichever type it is; `.\iscrule.cmd types`
+lists them). Alternatively, put the file in a folder named after its type, such as `rules\Correlation\`.
 
-Working on the kit itself? `powershell -File scripts\selftest.ps1` builds it, runs the sample suite, and drives
-the wizard, generator and templates end to end.
+**The wizard suggested values that don't fit my case.** Suggestions are only shortcuts. Type the value you want
+instead.
 
-`<rule>` is one of:
+**My test passes, but I know the rule has a bug.** Generated and "yes"-approved cases record what the rule *does*.
+Add a case with `add-test`, answer **2 (no)**, and type what *should* happen. That case fails until the rule is
+fixed.
 
-* a full rule XML file (`<Rule name=".." type="..">` with a CDATA `<Source>`),
-* raw BeanShell source (`.bsh`, `.txt`, anything not starting with `<`),
-* an **RDK / Eclipse-style Java class** (`public class X { ... }`),
-* `-` to read from **standard input**, so you can paste or pipe code: `Get-Content rule.txt -Raw | .\iscrule.cmd validate -`
+**"JUnit 4 not found".** Copy `junit-4.x.jar` and `hamcrest-core-1.3.jar` into a `lib` folder here. The kit also finds
+them automatically in your Maven cache (`%USERPROFILE%\.m2`).
 
-The rule type is taken from the XML `type` attribute, else `--type`, else guessed from a header comment or the
-variables the code uses (reported as `[auto-detected]`).
+**`rdk` says "Rule Development Kit not found" or "Maven not found".** Follow the one-time RDK setup above.
 
-Exit codes: `0` ok, `1` validation errors / failed tests, `2` usage or I/O error. Use `--junit` and `--format json`
-for CI.
+**RDK tests fail with `Mockito cannot mock this class`.** Your Java is newer than 17 and the RDK still has
+SailPoint's original Mockito version. See step 3 of the RDK setup.
 
-### Try it
+**Strange characters or no colours.** Add `--no-color`, or use Windows Terminal, where colours work automatically.
 
-```powershell
-.\iscrule.cmd validate examples\rules\MoveToDisabledOu.buggy.java      # finds 1 error + warnings
-.\iscrule.cmd check    examples\rules\MoveToDisabledOu.java  examples\cases\MoveToDisabledOu.cases.json
-.\iscrule.cmd check    examples\rules\UsernameGenerator.xml  examples\cases\UsernameGenerator.cases.json
-.\iscrule.cmd test     examples\rules\EmployeeIdCorrelation.bsh examples\cases\EmployeeIdCorrelation.cases.json   # 1 deliberate FAIL
-.\iscrule.cmd validate examples\rules\Broken.bsh --type IdentityAttribute
-.\iscrule.cmd export   examples\rules\MoveToDisabledOu.java -o "Rule - BeforeProvisioning - MoveToDisabledOu.xml"
-```
+---
 
-## Sample library and `iscrule suite`
+## More
 
-[`samples/`](samples) holds realistic rules for every rule type, each with its own cases file. Run them all with one
-command:
-
-```powershell
-.\iscrule.cmd suite
-```
-
-```text
-SUITE  samples  (14 rules)
-  PASS    AttributeGenerator\EmailAddress.bsh           6/6 cases     0 errors, 1 warning
-  CAUGHT  BeforeProvisioning\AdJoinerCreate.buggy.bsh   1/6 cases     0 errors, 2 warnings
-          caught: "finance joiner ..." threw NullPointerException: String.valueOf(null) ...
-  ...
-RESULT  11 passed, 3 buggy samples caught  (14 rules, 83 cases)
-```
-
-| Folder | Rule | What it shows |
-|---|---|---|
-| AttributeGenerator | `UniqueSamAccountName.java` | RDK class style, uniqueness loop with `idn.isUniqueLDAPValue`, 20-char limit, throws when all taken |
-| AttributeGenerator | `EmailAddress.bsh` | preferred name, source setting, `idn.countIdentitiesBySearchableIdentityAttribute` |
-| BeforeProvisioning | `AdLeaverRehire.java` | Disable: OU move, clear manager, hide from GAL, remove groups. Enable: OU by employee type |
-| BeforeProvisioning | `AdJoinerCreate.bsh` | Create: OU by department, description, default groups |
-| BuildMap | `HrCsvBuildMap.bsh` | trimming, short rows, date reformat, multi-value column |
-| Correlation | `EmployeeIdThenEmail.bsh` | leading zeros, email fallback, skipping service accounts |
-| IdentityAttribute | `LifecycleState.bsh` | lifecycle from HR status and dates, keeps `oldValue`, a case that expects an error |
-| IdentityAttribute | `DepartmentCode.bsh` | exact, keyword and fallback mapping |
-| ManagerCorrelation | `ManagerByEmployeeId.bsh` | parsing `"SMITH, Tyler (000123)"` |
-| Transform | `ProperCaseName.bsh`, `PhoneE164.bsh` | name casing rules; phone normalisation with an optional input |
-
-Files named `*.buggy.*` are broken on purpose. The suite reports them as **CAUGHT** when a case fails, errors or
-times out (or validation finds an error), and as **MISSED** if they pass. They cover a `String.valueOf(null)`
-crash, strings compared with `==`, and an endless loop.
-
-How the suite finds things:
-
-* every `.java`, `.bsh` or `.xml` file under the folder is a rule; `Foo.java` uses `Foo.cases.json` next to it
-  (no cases file means a smoke run with default inputs);
-* the rule type comes from the folder name (`samples/Transform/...`), else it is auto-detected;
-* each case gets 3 seconds unless you pass `--timeout-ms`; `--verbose` prints every case; `--junit` writes one
-  report for CI. Failing rules are printed in full, passing ones as one line.
-
-To build your own library, copy the layout: `my-rules/<RuleType>/<Name>.java` + `<Name>.cases.json`, then run
-`.\iscrule.cmd suite my-rules`.
-
-## Easiest: paste into `paste-here/Rule.java` and press Run
-
-1. Open [`paste-here/Rule.java`](paste-here/Rule.java), replace its contents with your rule, and save. Any form works:
-   an RDK-style `public class X { ... }`, raw BeanShell, or full `<Rule>` XML. The folder is outside `src/`, so the
-   pasted code is never compiled with the tool.
-2. Run it, in either of these ways:
-   * **In your IDE:** open `src/main/java/com/iscrulekit/RunPasted.java` and press the Run arrow next to `main`.
-   * **In a terminal:** `.\iscrule.cmd paste` (add `--watch` to re-run on every save, `--verbose` for full output).
-3. It validates the rule and runs it. If [`paste-here/Rule.cases.json`](paste-here) exists, those cases are used for
-   pass/fail checks; otherwise it is a smoke run with default inputs. To create the cases file:
-   `.\iscrule.cmd scaffold BeforeProvisioning > paste-here\Rule.cases.json` (use your rule's type). Delete or replace
-   it when you paste a different rule.
-
-## Quickest path from the clipboard
-
-```powershell
-Get-Clipboard -Raw | .\iscrule.cmd run -          # copy the rule, then run this
-.\iscrule.cmd run MyRule.java --watch             # re-validates and re-runs every time you save the file
-```
-
-With **no cases file**, `run` (and `check` / `test`) does a **smoke run**: it detects the rule type, feeds the rule the
-default inputs from `iscrule scaffold <type>`, and reports crashes, missing methods, null errors and unmocked `idn`
-calls. It cannot say whether the *answer* is right because it has no expectations. For that, add a cases file (below).
-
-`--watch` (`-w`) works with `validate`, `test`, `check` and `run`, needs a file path (not stdin), also re-runs when the
-cases file changes, and keeps going if you save a half-finished edit. Stop it with Ctrl+C.
-
-## Testing your own rule, step by step
-
-1. **Validate** the pasted code (no setup needed). Copy the rule, then:
-   ```powershell
-   Get-Clipboard -Raw | .\iscrule.cmd validate -
-   ```
-2. **Create a test-cases file** once per rule. It supplies the inputs the rule expects (identity, plan, `idn` results, ...):
-   ```powershell
-   .\iscrule.cmd scaffold BeforeProvisioning > my-rule.cases.json
-   ```
-   Edit `my-rule.cases.json`: change the input values to match your data, and add an `"expect"` (or `"expectChanged"` for
-   BeforeProvisioning) so the test can pass or fail. Without an expectation a case just runs and shows what happened.
-3. **Run validate + tests** whenever you change the logic:
-   ```powershell
-   Get-Clipboard -Raw | .\iscrule.cmd check - my-rule.cases.json --verbose
-   # or against a saved file
-   .\iscrule.cmd check MyRule.java my-rule.cases.json --verbose
-   ```
-4. Read the result: `PASS` / `FAIL` / `ERROR`, the returned value, what the rule changed in its inputs, log lines, and
-   `NOT MOCKED` notes telling you which `idn.method()` results to add under `"idn"` in the cases file.
-5. When it is clean, `iscrule export MyRule.java -o "Rule - <Type> - <Name>.xml"` produces the ISC-ready XML, then run
-   SailPoint's official validator on it.
-
-## What `validate` checks
-
-| Area | Codes | Examples |
-|---|---|---|
-| XML structure | `XML0xx`, `TYP00x`, `SIG00x` | not well-formed (with a CDATA hint), missing `name`/`type`/`Source`, unsupported or deprecated rule type, `&amp;` inside CDATA, BuildMap `<Signature>` |
-| Syntax | `SYN0xx` | unterminated strings/comments, bracket mismatches, likely missing `;`, **BeanShell parse errors from the real parser** (e.g. generics, which BeanShell 2.0b6 cannot parse) |
-| Code restrictions | `RES00x`, `GUI001` | blocked calls (`getObjectByName`, `search`, `sleep`, ...), `Thread`, `System.out`, `public static`, `Logger.getLogger`, BeanShell shell commands, `.toXml()` |
-| Guidelines | `GUI0xx` | loops, null-unsafe `getAttribute(..).x()`, hard-coded credentials, logging secrets, non-standard log levels, commented-out code, TODOs, empty catch, unreachable code, unused imports |
-| Common bugs | `BUG001`, `BUG002` | strings compared with `==` / `!=` (checks identity, not text); `String.valueOf(x.getAttribute(..))`, which throws in BeanShell when the value is null |
-| Methods | `UNDEF001`, `GUI016` | call to a method that is not defined (with a "did you mean"), method defined but never called |
-| Rule contract | `TYP01x`, `VAR001` | missing `return`, Correlation maps missing `identityAttributeName/Value`, `BeforeProvisioning` returning a value, using an input the rule type does not receive |
-| RDK style | `CLS001`, `CLS002` | class wrapper detected; ISC inputs re-declared as fields (shadowing the real objects) |
-
-Line numbers always refer to the file you passed in (including XML files, where source starts after `<Source>`).
-
-## Test-case files
-
-```jsonc
-{
-  "cases": [
-    {
-      "name": "inactive identity, Disable request",
-      "inputs": {                         // every key becomes a variable in the rule
-        "plan": { "identity": { "name": "jdoe", "attributes": { "cloudLifecycleState": "inactive" } },
-                  "accountRequests": [ { "applicationName": "AD", "nativeIdentity": "CN=jdoe", "operation": "Disable" } ] },
-        "application": { "name": "AD", "attributes": { "environment": "Sandbox" } },
-        "idn": {                          // mocks for idn.<method>(...)
-          "accountExistsByNativeIdentity": true,
-          "getRawAccountAttribute": { "$byLastArg": { "description": "Staff" }, "$default": "" }
-        }
-      },
-      "expect": "value or {json}",                       // compared to the rule's return value (numbers by value, key order ignored)
-      "expectError": false,                              // true, or a string the exception message must contain
-      "expectChanged": { "plan": { "accountRequests": [ { "attributeRequests": [ ... ] } ] } },   // subset match on mutated inputs
-      "expectLogContains": [ "begins" ]
-    }
-  ]
-}
-```
-
-`iscrule scaffold <type>` prints a starter file for each rule type. A file may also be a bare array of cases, or a
-single inputs object (one case with no assertions: it just runs and reports).
-
-**Input variables.** Well-known names become mock ISC objects: `identity`, `application`, `plan`
-(with `accountRequests` / `attributeRequests`), `account`, `link`, `field`, `schema`, `integration`. Anything else
-(`cols`, `record`, `oldValue`, Transform variables such as `text`) becomes plain Java (`String`, `Integer`, `Boolean`,
-`ArrayList`, `LinkedHashMap`). `identity.getAttribute(name)` reads `attributes` first.
-
-**`idn` mock.** `idn` is a BeanShell scripted object, so *any* `idn.method(args)` call works. Methods you list under
-`"idn"` return that JSON value; `$byLastArg` / `$default` choose by the last argument. Anything else returns `null` and is
-reported as `NOT MOCKED` (`--strict-mocks` turns that into a failure).
-
-**Reading results.** The output has three parts:
-
-```text
-VALIDATION  0 errors, 2 warnings, 9 notes      each problem once, with every line it occurs on (notes need --verbose)
-TESTS  14 cases                                 one line per case: PASS / FAIL / ERROR / RAN (ran, no checks)
-  FAIL   14 Remove Birthright + another group ...
-         Why it failed                          the exact field that differs, expected vs got
-         What the rule changed                  before -> after; + added, - removed (passwords masked)
-         Log                                    the rule's log lines
-RESULT  13 passed, 1 failed  (14 cases)
-```
-
-Passing cases are a single line; `--verbose` expands them too (changes, logs, every `idn` mock call, notes) and lists
-every value instead of summarising, e.g. `+ arguments (13 values set)`. Runtime errors show the line number and a hint.
-Colours turn on automatically in Windows Terminal and VS Code; force them with `--color` or turn them off with
-`--no-color` (or the `NO_COLOR` environment variable).
-
-## RDK-style class files
-
-Rules written as `public class X { ... }` with ISC inputs re-declared as fields are handled automatically. The class
-wrapper and the re-declared inputs (`Application application = new Application();`, `Logger log = ...`) are stripped
-for validation, testing and `export`, with line numbers unchanged. Methods become script functions and statements in the
-class body run as the script body. A class-style `execute()` method is **never** called by ISC, and the validator
-says so.
-
-## Extending the mocks
-
-Mock ISC classes live in `src/main/java/sailpoint/**` (`Identity`, `Application`, `ProvisioningPlan` with
-`AccountRequest` / `AttributeRequest`, `Link`, `ResourceObject`, `Field`, `Schema`, `Attributes`, `Util`,
-`GeneralException`) plus a `org.apache.log4j.Logger` shim. If a rule calls a method the mock lacks, the test fails
-with `Method X() not found in class sailpoint.object.Y` and a hint: add the method and rebuild. To use SailPoint's real
-jars instead, remove the matching mock package and put the real jar on the classpath.
-
-## Limits
-
-* Not the official validator; its rule set is reconstructed from public documentation and may differ from `sp-rv` or
-  SailPoint's reviewers. The exact blocked-call list is taken from the published code-restriction page.
-* The `sailpoint.*` classes are small stand-ins, not SailPoint's. Behaviour that depends on the real platform
-  (IdnRuleUtil results, real identity data model, plan semantics) is only as faithful as your `idn` mocks and fixtures.
-* BeanShell 2.0b6 is used. If ISC runs a different BeanShell build, rare language differences are possible.
-* A rule stuck in an infinite loop is reported as a timeout, but Java cannot kill the thread; it is abandoned and the
-  process exits when the run finishes (the CLI calls `System.exit`).
-
-## Layout
-
-```text
-src/main/java/com/iscrulekit/    CLI (Main), Validator, RuleParser, ClassUnwrapper, RuleRunner, Fixture, IdnMock, TestSuite, Report, ...
-src/main/java/sailpoint/**       mock ISC classes
-src/main/java/org/apache/log4j/  Logger / LogManager shim
-examples/rules, examples/cases   sample rules and test cases
-scripts/build-offline.ps1        build without Maven
-```
-"# My-ISC-Rule-Kit" 
+* [docs/REFERENCE.md](docs/REFERENCE.md) has every command option, what each validation code checks, the test-case file
+  format, the sample rules (`.\iscrule.cmd suite`), how the `idn` mock works, and the kit's limits.
+* After changing the kit itself, run `powershell -File scripts\selftest.ps1` to check that everything still works.

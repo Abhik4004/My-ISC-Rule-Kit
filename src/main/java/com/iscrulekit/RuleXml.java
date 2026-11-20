@@ -22,6 +22,23 @@ public final class RuleXml {
         return sb.toString();
     }
 
+    /** The XML for a loaded rule, plus what was stripped (class wrapper, re-declared inputs). */
+    public record Built(String name, String description, String xml, ClassUnwrapper.Result unwrap) {}
+
+    /**
+     * ISC-ready XML for any loaded rule: XML, raw BeanShell, RDK-style class, or a file made by 'import'.
+     * Name and description: the override, else the XML / import header, else the class name, else a default.
+     */
+    public static Built fromRule(ParsedRule p, String nameOverride, String descOverride) {
+        String[] imported = p.xml ? null : Importer.headerInfo(p.source);
+        String source = imported != null ? Importer.withoutHeader(p.source) : p.source;
+        ClassUnwrapper.Result u = ClassUnwrapper.unwrap(source, p.type == null ? java.util.List.of() : p.type.inputs);
+        String name = nameOverride != null ? nameOverride : !p.name.isEmpty() ? p.name : imported != null && imported[0] != null ? imported[0]
+                : u.className().isEmpty() ? "My Rule" : u.className();
+        String desc = descOverride != null ? descOverride : imported != null && imported[2] != null ? imported[2] : p.description;
+        return new Built(name, desc, build(name, p.type, desc, ClassUnwrapper.tidy(u.source())), u);
+    }
+
     private static String esc(String s) {
         return s.replace("&", "&amp;").replace("\"", "&quot;").replace("<", "&lt;").replace(">", "&gt;");
     }

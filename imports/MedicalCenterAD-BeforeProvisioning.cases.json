@@ -1,0 +1,1076 @@
+{
+  "cases": [
+    {
+      "name" : "baseline: Modify memberOf Add DualAuthUsersMedCtr @ ql1.ucsfmedicalcenter.org  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "operation Disable  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Disable",
+            "attributeRequests" : [ ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Disable",
+            "attributeRequests" : [ ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "operation Enable  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Enable",
+            "attributeRequests" : [ ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "memberOf Remove  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Remove",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Disable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Remove",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "memberOf Set  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Set",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Set",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "memberOf value DualAuthUsersMedCtr @ ucsfmedicalcenter.org  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "environment=Stage  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Stage"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "cloudLifecycleState=inactive  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "inactive",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "affiliation=acadap  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "acadap",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "affiliation=student  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "student",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=Temp Users,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "affiliation=applicant  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "applicant",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=Temp Users,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "90DaysPostInactive=true  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "true"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "accountExistsByNativeIdentity=false  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : false,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "emergencyDisabled=true  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "true",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "emergencyDisabled=(empty)  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "brb=true  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "true",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "brb=(empty)  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    },
+    {
+      "name" : "memberOf=DualAuthUsersMedCtr @ ucsfmedicalcenter.org  [recorded - review]",
+      "inputs" : {
+        "plan" : {
+          "identity" : {
+            "id" : "2c9180000000000000000000000test",
+            "name" : "testuser",
+            "attributes" : {
+              "cloudLifecycleState" : "active",
+              "affiliation" : "newemp",
+              "primaryUserAffiliation" : "affiliate",
+              "90DaysPostInactive" : "false"
+            }
+          },
+          "accountRequests" : [ {
+            "applicationName" : "Medical Center Active Directory [source]",
+            "nativeIdentity" : "CN=Test User,OU=Users,DC=example,DC=org",
+            "operation" : "Modify",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        },
+        "application" : {
+          "name" : "Medical Center Active Directory [source]",
+          "attributes" : {
+            "environment" : "Sandbox"
+          }
+        },
+        "integration" : null,
+        "idn" : {
+          "accountExistsByNativeIdentity" : true,
+          "getRawAccountAttribute" : {
+            "$byLastArg" : {
+              "emergencyDisabled" : "false",
+              "brb" : "false",
+              "msExchRecipientTypeDetails" : "2147483648",
+              "memberOf" : [ "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ucsfmedicalcenter,DC=org" ]
+            },
+            "$default" : ""
+          }
+        }
+      },
+      "expectChanged" : {
+        "plan" : {
+          "accountRequests" : [ {
+            "operation" : "Enable",
+            "attributeRequests" : [ {
+              "name" : "memberOf",
+              "operation" : "Add",
+              "value" : "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            }, {
+              "name" : "AC_NewParent",
+              "operation" : "Set",
+              "value" : "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org"
+            } ]
+          } ]
+        }
+      }
+    }
+  ]
+}

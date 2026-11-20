@@ -37,6 +37,10 @@ final class RuleAnalyzer {
         final String method; // idn method name for IDN, else null
         final String key;    // attribute / field / input name ("" when the idn call has no literal key)
         final Set<String> values = new LinkedHashSet<>();
+        /** Values built from startsWith/endsWith/contains checks (e.g. "svc_account" for startsWith("svc_")): used for variations, never as the default. */
+        final Set<String> patternValues = new LinkedHashSet<>();
+        /** Human-readable form of those checks, e.g. starts with "svc_". */
+        final List<String> patterns = new ArrayList<>();
         boolean list, bool, number;
 
         Slot(Kind kind, String method, String key) { this.kind = kind; this.method = method; this.key = key; }
@@ -53,7 +57,7 @@ final class RuleAnalyzer {
 
         /** Slots whose value decides a branch, or that the rule cannot work without. */
         boolean important() {
-            return !values.isEmpty() || bool || kind == Kind.IDENTITY_FIELD || kind == Kind.ACCOUNT_ATTR || kind == Kind.ACCOUNT_FIELD
+            return !values.isEmpty() || !patternValues.isEmpty() || bool || kind == Kind.IDENTITY_FIELD || kind == Kind.ACCOUNT_ATTR || kind == Kind.ACCOUNT_FIELD
                     || kind == Kind.LINK_ATTR || kind == Kind.INPUT || kind == Kind.COLUMN;
         }
     }
@@ -86,7 +90,7 @@ final class RuleAnalyzer {
     private static final Pattern IDN_CALL = Pattern.compile("\\bidn\\s*\\.\\s*(" + ID + ")\\s*\\(([^;]*?)\\)\\s*[;)&|!=?:,.+<>*/-]");
     private static final Pattern LAST_LITERAL = Pattern.compile(STR + "\\s*$");
     private static final Pattern LIT_EQ_OP = Pattern.compile(STR + "\\s*\\.\\s*(?:equals|equalsIgnoreCase)\\s*\\(\\s*(" + OPERAND + ")\\s*\\)");
-    private static final Pattern OP_EQ_LIT = Pattern.compile("(" + OPERAND + ")\\s*\\.\\s*(?:equals|equalsIgnoreCase|contains|startsWith|endsWith|matches)\\s*\\(\\s*" + STR + "\\s*\\)");
+    private static final Pattern OP_EQ_LIT = Pattern.compile("(" + OPERAND + ")\\s*\\.\\s*(equals|equalsIgnoreCase|contains|startsWith|endsWith|matches)\\s*\\(\\s*" + STR + "\\s*\\)");
     private static final Pattern OP_EQEQ_LIT = Pattern.compile("(" + OPERAND + ")\\s*[=!]=\\s*" + STR);
     private static final Pattern LIT_EQEQ_OP = Pattern.compile(STR + "\\s*[=!]=\\s*(" + OPERAND + ")");
     private static final Pattern OP_EQ_OP = Pattern.compile("(" + OPERAND + ")\\s*\\.\\s*(?:equals|equalsIgnoreCase|contains)\\s*\\(\\s*(" + OPERAND + ")\\s*\\)");
@@ -324,7 +328,11 @@ final class RuleAnalyzer {
             Matcher m = LIT_EQ_OP.matcher(src);
             while (m.find()) add(resolve(m.group(2)), m.group(1));
             m = OP_EQ_LIT.matcher(src);
-            while (m.find()) add(resolve(m.group(1)), m.group(2));
+            while (m.find()) {
+                String how = m.group(2), lit = m.group(3);
+                if (how.startsWith("equals") || (how.equals("contains") && lit.matches("\\w{2,}"))) add(resolve(m.group(1)), lit);
+                else addPattern(resolve(m.group(1)), how, lit);
+            }
             m = OP_EQEQ_LIT.matcher(src);
             while (m.find()) add(resolve(m.group(1)), m.group(2));
             m = LIT_EQEQ_OP.matcher(src);
@@ -350,6 +358,23 @@ final class RuleAnalyzer {
             if (s == null) return;
             if (s.kind == Kind.ATTR_REQUEST && List.of("Add", "Remove", "Set", "Retain", "Revoke").contains(value)) return; // operation names
             s.values.add(value.replace("\\\"", "\""));
+        }
+
+        /** startsWith("svc_") -> variation value "svc_account"; endsWith(".org") -> "test.org"; contains("@") -> a sample with "@". */
+        void addPattern(Slot s, String how, String lit) {
+            if (s == null || s.kind == Kind.ATTR_REQUEST) return;
+            String l = lit.replace("\\\"", "\"");
+            switch (how) {
+                case "startsWith" -> { s.patterns.add("starts with \"" + l + "\""); s.patternValues.add(l + "account"); }
+                case "endsWith" -> { s.patterns.add("ends with \"" + l + "\""); s.patternValues.add("test" + l); }
+                case "contains" -> {
+                    s.patterns.add("contains \"" + l + "\"");
+                    String sample = CaseBuilder.sample(s).asText();
+                    s.patternValues.add(sample.contains(l) ? sample : "a" + l + "b");
+                    s.patternValues.add(sample.contains(l) ? sample.replace(l, "") : sample); // one without it
+                }
+                default -> s.patterns.add("matches \"" + l + "\"");
+            }
         }
 
         void typeSpecificInputs() {

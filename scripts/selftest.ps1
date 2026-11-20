@@ -21,6 +21,11 @@ try {
     Copy-Item samples\IdentityAttribute\LifecycleState.bsh (Join-Path $tmp 'Rule.bsh')
     $rule = Join-Path $tmp 'Rule.bsh'
 
+    $mixed = Join-Path $tmp 'Mixed.bsh'
+    "boolean a = true, b = false, c = true;`nif (a && b || c) log.debug(`"x`");`nif (a && (b || c)) log.debug(`"a && b || c`");`nreturn null;" | Set-Content $mixed -Encoding utf8
+    $v = (& .\iscrule.cmd validate $mixed --type Transform --no-color) -join "`n"
+    Check 'validate flags && / || without brackets (BUG003) only where it applies' ($v -match 'line 2\s+BUG003' -and $v -notmatch 'line 3\s+BUG003')
+
     $analysis = & .\iscrule.cmd analyze $rule --type IdentityAttribute --no-color
     Check 'analyze finds hrStatus values T, L, A' (($analysis -join "`n") -match 'hrStatus\s+"T", "L", "A"')
 
@@ -38,6 +43,35 @@ try {
     & .\iscrule.cmd new Transform Demo --dir $tmp --no-color | Out-Null
     & .\iscrule.cmd run (Join-Path $tmp 'Transform\Demo.java') --no-color | Out-Null
     Check 'new creates a runnable rule' ($LASTEXITCODE -eq 0)
+
+    # import: rule XML -> rule file + cases + JUnit test; JUnit passes; export rebuilds the same XML
+    $xml = Join-Path $tmp 'export.xml'
+    & .\iscrule.cmd export samples\Correlation\EmployeeIdThenEmail.bsh --name 'HR Correlation' -o $xml | Out-Null
+    $imported = Join-Path $tmp 'imported'
+    & .\iscrule.cmd import $xml --dir $imported --no-color | Out-Null
+    $ruleFile = Join-Path $imported 'Correlation\HrCorrelation.java'
+    Check 'import writes rule, cases and JUnit test' ((Test-Path $ruleFile) -and (Test-Path (Join-Path $imported 'Correlation\HrCorrelation.cases.json')) -and (Test-Path (Join-Path $imported 'Correlation\HrCorrelationTest.java')))
+    & .\iscrule.cmd junit $imported --no-color | Out-Null
+    Check 'generated JUnit tests pass on the imported rule' ($LASTEXITCODE -eq 0)
+    $back = Join-Path $tmp 'back.xml'
+    & .\iscrule.cmd export $ruleFile -o $back | Out-Null
+    $a = ([xml](Get-Content $xml -Raw)).Rule; $b = ([xml](Get-Content $back -Raw)).Rule
+    Check 'export rebuilds the imported XML' ($a.name -eq $b.name -and $a.type -eq $b.type -and $a.Source.InnerText.Trim() -eq $b.Source.InnerText.Trim())
+    (Get-Content $ruleFile -Raw) -replace '"employeeNumber"', '"empNo"' | Set-Content $ruleFile -Encoding utf8
+    & .\iscrule.cmd junit $imported --no-color | Out-Null
+    Check 'generated JUnit tests catch a changed rule' ($LASTEXITCODE -eq 1)
+
+    # SailPoint RDK (only when an RDK checkout and Maven are available): runs in a temporary copy of the RDK
+    $rdk = @((Join-Path $root '..\rule-development-kit'), $env:ISC_RDK) | Where-Object { $_ -and (Test-Path (Join-Path $_ 'pom.xml')) } | Select-Object -First 1
+    $hasMaven = (Get-Command mvn -ErrorAction SilentlyContinue) -or (Get-ChildItem (Join-Path $root '..\tools') -Directory -Filter 'apache-maven-*' -ErrorAction SilentlyContinue)
+    if ($rdk -and $hasMaven) {
+        $rdkCopy = Join-Path $tmp 'rdk'
+        robocopy $rdk $rdkCopy /E /XD .git target /NFL /NDL /NJH /NJS /NP | Out-Null
+        $out = (& .\iscrule.cmd rdk samples\Correlation\EmployeeIdThenEmail.bsh --rdk $rdkCopy --no-color) -join "`n"
+        Check 'rdk: generated RDK tests pass on SailPoint classes (mvn test)' ($LASTEXITCODE -eq 0 -and $out -match 'RESULT\s+6 passed')
+    } else {
+        Write-Host '  skip  rdk (no rule-development-kit next to the kit, or no Maven)' -ForegroundColor Yellow
+    }
 }
 finally {
     Remove-Item $tmp -Recurse -Force -ErrorAction SilentlyContinue
