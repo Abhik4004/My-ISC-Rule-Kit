@@ -13,6 +13,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Stream;
 
@@ -84,9 +85,16 @@ final class Rdk {
         out.println("  " + pad("test cases") + cases + Ansi.dim("   (" + list.size() + (generated ? " generated, today's results recorded)" : ")")));
 
         // 4. the test class
-        if (Files.exists(testFile) && !force && !Files.readString(testFile, StandardCharsets.UTF_8).contains(RdkGen.MARKER)) {
-            out.println("  " + pad("test class") + Ansi.yellow(rdk.relativize(testFile) + " was edited by hand, so it was left alone (use --force to replace it)"));
+        boolean handMade = Files.exists(testFile) && !Files.readString(testFile, StandardCharsets.UTF_8).contains(RdkGen.MARKER);
+        if (handMade && !force) {
+            out.println("  " + pad("test class") + Ansi.yellow(rdk.relativize(testFile) + " was not made by iscrule (or was edited by hand),"));
+            out.println("  " + pad("") + Ansi.yellow("so it was left alone. To replace it, run again with --force (the old file is kept as .java.bak)."));
         } else {
+            if (handMade) { // --force: keep the old file, with an extension Maven does not compile
+                Path bak = testFile.resolveSibling(testFile.getFileName() + ".bak");
+                Files.move(testFile, bak, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                out.println("  " + pad("") + Ansi.dim("old test class saved as " + rdk.relativize(bak)));
+            }
             String ruleXmlRel = rdk.relativize(xmlFile).toString().replace('\\', '/');
             Files.createDirectories(testFile.getParent());
             Files.writeString(testFile, RdkGen.testClass(rdk, className, ruleXmlRel, p.type, list), StandardCharsets.UTF_8);
@@ -181,14 +189,63 @@ final class Rdk {
             return 1;
         }
         if (!Files.exists(report)) {
-            out.println("  " + Ansi.red("Maven did not run the tests (exit " + rc + "). The important lines from the log:"));
-            for (String line : Files.readAllLines(log, StandardCharsets.UTF_8))
-                if (line.startsWith("[ERROR]") && !line.contains("-> [Help") && !line.contains("Re-run Maven") && !line.contains("For more information")
-                        && !line.isBlank() && !line.trim().equals("[ERROR]"))
-                    out.println("    " + line.replace(rdk.toString() + File.separator, ""));
+            List<String> lines = Files.readAllLines(log, StandardCharsets.UTF_8);
+            if (!summarizeCompileErrors(rdk, lines, out)) {
+                out.println("  " + Ansi.red("Maven did not run the tests (exit " + rc + "). The important lines from the log:"));
+                int shown = 0;
+                for (String line : lines)
+                    if (line.startsWith("[ERROR]") && !line.contains("-> [Help") && !line.contains("Re-run Maven") && !line.contains("For more information")
+                            && !line.trim().equals("[ERROR]") && shown++ < 25)
+                        out.println("    " + line.replace(rdk.toString() + File.separator, ""));
+            }
             return rc == 0 ? 1 : rc;
         }
         return printReport(report, out);
+    }
+
+    /**
+     * Java compile errors from the Maven log, grouped per file: which symbols are missing, and what to do. Maven compiles
+     * every test class, so one broken file (often an old or hand-made one) stops all tests. Returns false when there
+     * are no compile errors in the log.
+     */
+    static boolean summarizeCompileErrors(Path rdk, List<String> log, PrintStream out) {
+        java.util.regex.Pattern loc = java.util.regex.Pattern.compile("^\\[ERROR\\] (/?.+?\\.java):\\[(\\d+),\\d+\\] (.+)$");
+        Map<String, java.util.Set<String>> problems = new java.util.LinkedHashMap<>();
+        Map<String, java.util.Set<String>> lines = new java.util.LinkedHashMap<>();
+        String current = null;
+        for (String l : log) {
+            java.util.regex.Matcher m = loc.matcher(l);
+            if (m.find()) {
+                current = m.group(1);
+                lines.computeIfAbsent(current, k -> new java.util.TreeSet<>(java.util.Comparator.comparingInt(Integer::parseInt))).add(m.group(2));
+                if (!m.group(3).startsWith("cannot find symbol")) problems.computeIfAbsent(current, k -> new java.util.LinkedHashSet<>()).add(m.group(3).trim());
+                continue;
+            }
+            if (current != null && l.startsWith("[ERROR]   symbol:"))
+                problems.computeIfAbsent(current, k -> new java.util.LinkedHashSet<>()).add("cannot find " + l.substring(l.indexOf(':') + 1).trim());
+        }
+        if (lines.isEmpty()) return false;
+        out.println("  " + Ansi.red("Maven could not compile the test classes, so no test ran. Maven compiles every test class, so one broken"));
+        out.println("  " + Ansi.red("file stops all of them."));
+        for (Map.Entry<String, java.util.Set<String>> e : lines.entrySet()) {
+            Path file = Path.of(e.getKey().replaceFirst("^/(?=[A-Za-z]:)", ""));
+            String shown;
+            try { shown = rdk.relativize(file).toString(); } catch (IllegalArgumentException ex) { shown = file.toString(); }
+            boolean ours = false;
+            try { ours = Files.readString(file, StandardCharsets.UTF_8).contains(RdkGen.MARKER); } catch (IOException ignored) { /* unreadable */ }
+            out.println();
+            out.println("    " + Ansi.bold(shown) + Ansi.dim("  (lines " + String.join(", ", e.getValue().stream().limit(8).toList())
+                    + (e.getValue().size() > 8 ? ", ..." : "") + ")"));
+            for (String p : problems.getOrDefault(e.getKey(), java.util.Set.of())) out.println("      " + p);
+            String name = file.getFileName().toString();
+            if (!ours) {
+                out.println("      " + Ansi.cyan("This file was not made by iscrule. If it belongs to this rule, run again with --force to replace it"));
+                out.println("      " + Ansi.cyan("(the old file is kept as " + name + ".bak). Otherwise fix it, or move it out of src\\test\\java."));
+            } else {
+                out.println("      " + Ansi.cyan("This file was made by iscrule: run 'iscrule rdk' for its rule again to regenerate it."));
+            }
+        }
+        return true;
     }
 
     /** One line per test from the surefire XML report, with the failure message for failed tests. */
