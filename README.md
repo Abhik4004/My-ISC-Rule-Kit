@@ -60,7 +60,20 @@ for CI.
 .\iscrule.cmd export   examples\rules\MoveToDisabledOu.java -o "Rule - BeforeProvisioning - MoveToDisabledOu.xml"
 ```
 
-## Quickest path: paste and run
+## Easiest: paste into `paste-here/Rule.java` and press Run
+
+1. Open [`paste-here/Rule.java`](paste-here/Rule.java), replace its contents with your rule, and save. Any form works:
+   an RDK-style `public class X { ... }`, raw BeanShell, or full `<Rule>` XML. The folder is outside `src/`, so the
+   pasted code is never compiled with the tool.
+2. Run it, in either of these ways:
+   * **In your IDE:** open `src/main/java/com/iscrulekit/RunPasted.java` and press the Run arrow next to `main`.
+   * **In a terminal:** `.\iscrule.cmd paste` (add `--watch` to re-run on every save, `--verbose` for full output).
+3. It validates the rule and runs it. If [`paste-here/Rule.cases.json`](paste-here) exists, those cases are used for
+   pass/fail checks; otherwise it is a smoke run with default inputs. To create the cases file:
+   `.\iscrule.cmd scaffold BeforeProvisioning > paste-here\Rule.cases.json` (use your rule's type). Delete or replace
+   it when you paste a different rule.
+
+## Quickest path from the clipboard
 
 ```powershell
 Get-Clipboard -Raw | .\iscrule.cmd run -          # copy the rule, then run this

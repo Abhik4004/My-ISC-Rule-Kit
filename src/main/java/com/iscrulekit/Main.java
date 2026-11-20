@@ -58,6 +58,7 @@ public final class Main {
 
     static int run(String[] args, PrintStream out, PrintStream err) throws IOException {
         if (args.length == 0 || args[0].equals("help") || args[0].equals("--help") || args[0].equals("-h")) { usage(out); return args.length == 0 ? 2 : 0; }
+        if (args[0].equals("paste")) return run(RunPasted.toRunArgs(java.util.Arrays.copyOfRange(args, 1, args.length)), out, err);
         String cmd = args[0];
         Opts o = parseOpts(args);
         if (o.watch) {
@@ -288,7 +289,8 @@ public final class Main {
                   iscrule check    <rule> <cases.json> [same options]     validate, then test
                   iscrule run      <rule> [cases.json] [same options]     validate + test; with no cases file, a smoke run
                                                                           using default inputs for the rule type
-                  (validate/test/check/run accept --watch to re-run whenever the file is saved)
+                  iscrule paste    [same options]                         run paste-here/Rule.java (+ Rule.cases.json if present)
+                  (validate/test/check/run/paste accept --watch to re-run whenever the file is saved)
                   iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   produce ISC-ready rule XML
                   iscrule scaffold <type>                                 print a starter cases.json
                   iscrule types                                           list rule types and their inputs
