@@ -4,8 +4,13 @@ import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.iscrulekit.Finding.Severity;
 
+import com.fasterxml.jackson.databind.JsonNode;
+
 import java.io.PrintStream;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /** Console / JSON / JUnit rendering of validator findings and test results. */
 public final class Report {
@@ -17,19 +22,55 @@ public final class Report {
         return n;
     }
 
-    public static void printFindings(PrintStream out, String file, ParsedRule p, boolean autoType, List<Finding> findings) {
-        out.println("Rule      : " + file);
-        out.println("Format    : " + (p.xml ? "ISC rule XML" : "raw source"));
-        out.println("Rule type : " + (p.type != null ? p.type.xmlName + " (" + p.type.label + ")" + (autoType ? "  [auto-detected]" : "")
-                : p.typeName != null ? p.typeName + " (unsupported)" : "unknown"));
-        if (p.type != null) out.println("Inputs    : " + String.join(", ", p.type.inputs));
+    static final int WIDTH = 110;
+    private static final String RULE = "-".repeat(WIDTH);
+
+    public static void printHeader(PrintStream out, String file, ParsedRule p, boolean autoType) {
+        String type = p.type != null ? p.type.xmlName + (autoType ? " (auto-detected)" : "")
+                : p.typeName != null ? p.typeName + " (unsupported)" : "unknown";
+        out.println(Ansi.bold("Rule  ") + file + Ansi.dim(p.xml ? "  (rule XML)" : ""));
+        out.println(Ansi.bold("Type  ") + type + (p.type != null ? Ansi.dim("   inputs: " + String.join(", ", p.type.inputs)) : ""));
+    }
+
+    public static void printFindings(PrintStream out, String file, ParsedRule p, boolean autoType, List<Finding> findings, boolean verbose) {
+        printHeader(out, file, p, autoType);
         out.println();
-        for (Finding f : findings) {
-            out.printf("  %-5s %-6s %-9s %s%n", f.severity(), f.line() == null ? "-" : "L" + f.line(), f.code(), f.message());
+        int errors = count(findings, Severity.ERROR), warns = count(findings, Severity.WARN), notes = count(findings, Severity.INFO);
+        String summary = (errors > 0 ? Ansi.red(errors + " error" + s(errors)) : "0 errors") + ", "
+                + (warns > 0 ? Ansi.yellow(warns + " warning" + s(warns)) : "0 warnings") + ", " + notes + " note" + s(notes);
+        out.println(Ansi.bold("VALIDATION") + "  " + summary);
+        out.println(Ansi.dim(RULE));
+        // one entry per distinct problem, listing every line it occurs on
+        Map<String, List<Finding>> groups = new LinkedHashMap<>();
+        for (Severity sev : new Severity[] {Severity.ERROR, Severity.WARN, Severity.INFO}) {
+            if (sev == Severity.INFO && !verbose) continue;
+            for (Finding f : findings) if (f.severity() == sev) groups.computeIfAbsent(sev + f.code() + f.message(), k -> new ArrayList<>()).add(f);
         }
-        if (findings.isEmpty()) out.println("  No findings.");
-        out.println();
-        out.printf("%d error(s), %d warning(s), %d note(s)%n", count(findings, Severity.ERROR), count(findings, Severity.WARN), count(findings, Severity.INFO));
+        for (List<Finding> g : groups.values()) {
+            Finding f = g.get(0);
+            List<String> lines = new ArrayList<>();
+            for (Finding x : g) if (x.line() != null) lines.add(String.valueOf(x.line()));
+            String where = lines.isEmpty() ? "" : (lines.size() == 1 ? "line " : "lines ") + String.join(", ", lines);
+            String tag = switch (f.severity()) { case ERROR -> Ansi.red("ERROR"); case WARN -> Ansi.yellow("WARN "); default -> Ansi.dim("NOTE "); };
+            out.println("  " + tag + "  " + Ansi.bold(where.isEmpty() ? f.code() : where) + Ansi.dim("  " + (where.isEmpty() ? "" : f.code())));
+            for (String l : wrap(f.message(), WIDTH - 9)) out.println("         " + l);
+        }
+        if (findings.isEmpty()) out.println("  " + Ansi.green("No problems found."));
+        else if (!verbose && notes > 0) out.println(Ansi.dim("  " + notes + " note" + s(notes) + " hidden (unused imports and similar). --verbose shows them."));
+    }
+
+    private static String s(long n) { return n == 1 ? "" : "s"; }
+
+    static List<String> wrap(String text, int width) {
+        List<String> out = new ArrayList<>();
+        StringBuilder line = new StringBuilder();
+        for (String w : text.split(" ")) {
+            if (line.length() > 0 && line.length() + 1 + w.length() > width) { out.add(line.toString()); line.setLength(0); }
+            if (line.length() > 0) line.append(' ');
+            line.append(w);
+        }
+        if (line.length() > 0) out.add(line.toString());
+        return out;
     }
 
     public static ObjectNode findingsJson(String file, ParsedRule p, List<Finding> findings) {
@@ -52,24 +93,96 @@ public final class Report {
         return root;
     }
 
+    public static void printTestsHeading(PrintStream out, int n, String note) {
+        out.println();
+        out.println(Ansi.bold("TESTS") + "  " + n + " case" + s(n) + (note == null ? "" : Ansi.dim("  " + note)));
+        out.println(Ansi.dim(RULE));
+    }
+
+    private static final String IND = "         ";
+
     public static void printResult(PrintStream out, TestSuite.Result r, boolean verbose) {
         RuleRunner.Outcome o = r.outcome();
-        out.printf("[%s] %s  (%d ms)%n", r.status(), r.testCase().name(), o.ms());
-        for (String f : r.failures()) out.println("      FAIL: " + f);
+        String tag = switch (r.status()) {
+            case PASS -> Ansi.green("PASS ");
+            case FAIL -> Ansi.red("FAIL ");
+            case ERROR -> Ansi.red("ERROR");
+            default -> Ansi.cyan("RAN  ");
+        };
+        out.println("  " + tag + "  " + r.testCase().name() + (verbose ? Ansi.dim("  (" + o.ms() + " ms)") : ""));
+        boolean details = verbose || r.status() != TestSuite.Status.PASS;
+        if (!details) return;
+
+        if (!r.failures().isEmpty()) {
+            out.println(IND + Ansi.bold("Why it failed"));
+            for (String f : r.failures()) for (String l : f.split("\n")) {
+                String lead = l.substring(0, l.length() - l.stripLeading().length());
+                List<String> parts = wrap(l.stripLeading(), WIDTH - 11 - lead.length());
+                for (int i = 0; i < parts.size(); i++) out.println(IND + "  " + lead + (i == 0 ? "" : "    ") + parts.get(i));
+            }
+        }
         if (!o.ok()) {
-            out.println("      Exception: " + o.error().type() + ": " + o.error().message());
-            if (o.error().line() != null) out.println("      at line " + o.error().line());
-            if (o.error().hint() != null) out.println("      Hint: " + o.error().hint());
-        } else {
-            out.println("      Returned" + " (" + o.kind() + "): " + (o.voidResult() ? "(no return value)" : Json.compact(o.result())));
+            RuleRunner.ErrorInfo e = o.error();
+            out.println(IND + Ansi.red(e.type()) + (e.line() != null ? Ansi.bold("  at line " + e.line()) : ""));
+            for (String l : wrap(e.message(), WIDTH - 11)) out.println(IND + "  " + l);
+            if (e.hint() != null) for (String l : wrap("Hint: " + e.hint(), WIDTH - 11)) out.println(IND + "  " + Ansi.cyan(l));
+        } else if (!o.voidResult() && (o.result() != null || r.testCase().hasExpect())) {
+            out.println(IND + Ansi.bold("Returned  ") + Diff.show(Json.toNode(o.result()), verbose) + Ansi.dim("  (" + o.kind() + ")"));
         }
-        if (!o.changed().isEmpty()) out.println("      Modified inputs: " + Json.compact(o.changed()));
-        if (verbose || !r.passed()) {
-            for (RuleRunner.LogLine l : o.logs()) out.println("      log " + l.level() + ": " + l.message());
-            for (String n : o.notes()) out.println("      note: " + n);
-        } else if (!o.logs().isEmpty() || !o.notes().isEmpty()) {
-            out.println("      (" + o.logs().size() + " log line(s), " + o.notes().size() + " note(s); use --verbose to show)");
+
+        List<String> changes = new ArrayList<>();
+        JsonNode after = Json.toNode(o.changed());
+        after.fieldNames().forEachRemaining(k -> changes.addAll(Diff.changes(r.testCase().inputs().get(k), after.get(k), k, verbose)));
+        if (!changes.isEmpty()) {
+            out.println(IND + Ansi.bold("What the rule changed"));
+            for (String c : changes) {
+                List<String> parts = wrap(c, WIDTH - 11);
+                for (int i = 0; i < parts.size(); i++) {
+                    String p = i == 0 ? parts.get(i) : "    " + parts.get(i);
+                    out.println(IND + "  " + (c.startsWith("+ ") ? Ansi.green(p) : c.startsWith("- ") ? Ansi.red(p) : p));
+                }
+            }
+        } else if (o.ok() && (verbose || r.testCase().expectChanged() != null)) {
+            out.println(IND + Ansi.bold("What the rule changed") + Ansi.dim("  nothing"));
         }
+
+        boolean showLogs = verbose || r.status() == TestSuite.Status.FAIL || r.status() == TestSuite.Status.ERROR;
+        if (!o.logs().isEmpty()) {
+            if (showLogs) {
+                out.println(IND + Ansi.bold("Log"));
+                for (RuleRunner.LogLine l : o.logs()) {
+                    List<String> parts = wrap(l.message(), WIDTH - 17);
+                    for (int i = 0; i < parts.size(); i++)
+                        out.println(IND + "  " + (i == 0 ? Ansi.dim(String.format("%-5s", l.level())) : "     ") + " " + parts.get(i));
+                }
+            } else {
+                out.println(IND + Ansi.dim(o.logs().size() + " log line" + s(o.logs().size()) + " (--verbose shows them)"));
+            }
+        }
+        List<String> notes = new ArrayList<>();
+        for (String n : o.notes()) if (verbose || n.startsWith("NOT MOCKED")) notes.add(n);
+        if (!notes.isEmpty()) {
+            out.println(IND + Ansi.bold("Notes"));
+            for (String n : notes) out.println(IND + "  " + (n.startsWith("NOT MOCKED") ? Ansi.yellow(n) : Ansi.dim(n)));
+        }
+        out.println();
+    }
+
+    public static void printSummary(PrintStream out, List<TestSuite.Result> results) {
+        long pass = 0, fail = 0, error = 0, ran = 0;
+        for (TestSuite.Result r : results) switch (r.status()) {
+            case PASS -> pass++;
+            case FAIL -> fail++;
+            case ERROR -> error++;
+            default -> ran++;
+        }
+        List<String> parts = new ArrayList<>();
+        if (pass > 0) parts.add(Ansi.green(pass + " passed"));
+        if (fail > 0) parts.add(Ansi.red(fail + " failed"));
+        if (error > 0) parts.add(Ansi.red(error + " error" + s(error)));
+        if (ran > 0) parts.add(Ansi.cyan(ran + " ran without checks"));
+        out.println(Ansi.dim(RULE));
+        out.println(Ansi.bold("RESULT") + "  " + String.join(", ", parts) + Ansi.dim("  (" + results.size() + " case" + s(results.size()) + ")"));
     }
 
     public static ArrayNode resultsJson(List<TestSuite.Result> results) {

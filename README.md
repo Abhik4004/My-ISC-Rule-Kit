@@ -161,9 +161,22 @@ single inputs object (one case with no assertions: it just runs and reports).
 `"idn"` return that JSON value; `$byLastArg` / `$default` choose by the last argument. Anything else returns `null` and is
 reported as `NOT MOCKED` (`--strict-mocks` turns that into a failure).
 
-**Reading results.** Each case prints `PASS` / `FAIL` / `ERROR` / `RAN` (ran, but no assertions), the returned value, any
-*modified inputs* (this is how you see what a BeforeProvisioning rule did to the plan), log output, and mock notes.
-Runtime errors report the file line number and a hint when the cause is recognisable.
+**Reading results.** The output has three parts:
+
+```text
+VALIDATION  0 errors, 2 warnings, 9 notes      each problem once, with every line it occurs on (notes need --verbose)
+TESTS  14 cases                                 one line per case: PASS / FAIL / ERROR / RAN (ran, no checks)
+  FAIL   14 Remove Birthright + another group ...
+         Why it failed                          the exact field that differs, expected vs got
+         What the rule changed                  before -> after; + added, - removed (passwords masked)
+         Log                                    the rule's log lines
+RESULT  13 passed, 1 failed  (14 cases)
+```
+
+Passing cases are a single line; `--verbose` expands them too (changes, logs, every `idn` mock call, notes) and lists
+every value instead of summarising, e.g. `+ arguments (13 values set)`. Runtime errors show the line number and a hint.
+Colours turn on automatically in Windows Terminal and VS Code; force them with `--color` or turn them off with
+`--no-color` (or the `NO_COLOR` environment variable).
 
 ## RDK-style class files
 

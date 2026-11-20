@@ -134,6 +134,8 @@ public final class Main {
                 case "--strict-mocks" -> o.strictMocks = true;
                 case "--watch", "-w" -> o.watch = true;
                 case "--verbose", "-v" -> o.verbose = true;
+                case "--color" -> Ansi.on = true;
+                case "--no-color" -> Ansi.on = false;
                 default -> {
                     if (s.startsWith("--")) throw new UsageException("unknown option " + s);
                     o.positional.add(s);
@@ -177,7 +179,7 @@ public final class Main {
 
     private static void emitFindings(Opts o, PrintStream out, Loaded l, List<Finding> f) {
         if (o.format.equals("json")) out.println(Json.pretty(Report.findingsJson(l.label(), l.rule(), f)));
-        else Report.printFindings(out, l.label(), l.rule(), l.autoType(), f);
+        else Report.printFindings(out, l.label(), l.rule(), l.autoType(), f, o.verbose);
     }
 
     private static boolean failed(List<Finding> f, String failOn) {
@@ -203,15 +205,15 @@ public final class Main {
         List<Finding> findings = null;
         if (alsoValidate) {
             findings = Validator.validate(l.rule());
-            if (!json) { emitFindings(o, out, l, findings); out.println(); }
+            if (!json) emitFindings(o, out, l, findings);
             if (failed(findings, o.failOn)) exit = 1;
+        } else if (!json) {
+            Report.printHeader(out, l.label(), l.rule(), l.autoType());
         }
         if (l.rule().type == null && !json) out.println("note: rule type unknown; pass --type for accurate input handling.");
-        if (smoke && !json) {
-            out.println("note: no cases file given. Smoke run with default " + l.rule().type.xmlName + " inputs; there are no assertions, so this only");
-            out.println("      catches crashes, missing methods and null errors. Pass a cases file (iscrule scaffold " + l.rule().type.xmlName + ") to check results.");
-            out.println();
-        }
+        if (!json) Report.printTestsHeading(out, cases.size(), smoke
+                ? "no cases file, so default " + l.rule().type.xmlName + " inputs and no pass/fail checks (iscrule scaffold " + l.rule().type.xmlName + " makes one)"
+                : o.positional.get(1));
 
         List<TestSuite.Result> results = new ArrayList<>();
         for (TestSuite.Case c : cases) {
@@ -238,8 +240,7 @@ public final class Main {
             s.put("failed", results.size() - pass);
             out.println(Json.pretty(root));
         } else {
-            out.println();
-            out.printf("%d of %d test case(s) passed%n", pass, results.size());
+            Report.printSummary(out, results);
         }
         if (o.junit != null) Files.writeString(Path.of(o.junit), Report.junit(l.label(), results), StandardCharsets.UTF_8);
         return exit;
@@ -290,7 +291,8 @@ public final class Main {
                   iscrule run      <rule> [cases.json] [same options]     validate + test; with no cases file, a smoke run
                                                                           using default inputs for the rule type
                   iscrule paste    [same options]                         run paste-here/Rule.java (+ Rule.cases.json if present)
-                  (validate/test/check/run/paste accept --watch to re-run whenever the file is saved)
+                  (validate/test/check/run/paste accept --watch to re-run whenever the file is saved,
+                   --verbose to expand every case, and --color / --no-color)
                   iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   produce ISC-ready rule XML
                   iscrule scaffold <type>                                 print a starter cases.json
                   iscrule types                                           list rule types and their inputs

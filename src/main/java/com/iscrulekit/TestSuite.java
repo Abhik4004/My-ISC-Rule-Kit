@@ -103,10 +103,26 @@ public final class TestSuite {
             JsonNode actual = o.voidResult() ? null : Json.toNode(o.result());
             JsonNode exp = c.expect();
             boolean ok = o.voidResult() ? exp == null || exp.isNull() : Json.equal(exp, actual == null ? Json.toNode(null) : actual);
-            if (!ok) fails.add("Expected " + Json.compact(exp) + " but got " + (o.voidResult() ? "no value (void)" : Json.compact(o.result())));
+            if (!ok) {
+                JsonNode act = o.voidResult() ? null : Json.toNode(o.result());
+                if (exp != null && act != null && exp.isObject() && act.isObject()) {
+                    List<String> lines = new ArrayList<>(Diff.mismatches(exp, act, "return"));
+                    act.fieldNames().forEachRemaining(k -> { if (!exp.has(k)) lines.add("return." + k + ": not expected, got " + Diff.show(act.get(k), true)); });
+                    fails.add("Return value does not match expect:\n  " + String.join("\n  ", lines));
+                } else {
+                    fails.add("Return value: expected " + Diff.show(exp, true) + ", got " + (o.voidResult() ? "no value (void)" : Diff.show(act, true)));
+                }
+            }
         }
-        if (c.expectChanged() != null && !Json.subset(c.expectChanged(), Json.toNode(o.changed())))
-            fails.add("Expected modified inputs to include " + Json.compact(c.expectChanged()) + " but got " + Json.compact(o.changed()));
+        if (c.expectChanged() != null) {
+            // inputs the rule did not touch count as unchanged, so compare against the original input for those
+            ObjectNode full = c.inputs().deepCopy();
+            Json.toNode(o.changed()).fields().forEachRemaining(f -> full.set(f.getKey(), f.getValue()));
+            if (!Json.subset(c.expectChanged(), full)) {
+                List<String> lines = Diff.mismatches(c.expectChanged(), full, "");
+                fails.add("expectChanged does not match what the rule did:" + (lines.isEmpty() ? "" : "\n  " + String.join("\n  ", lines)));
+            }
+        }
         for (String needle : c.expectLogContains()) {
             boolean found = o.logs().stream().anyMatch(l -> l.message().contains(needle));
             if (!found) fails.add("Expected a log line containing \"" + needle + "\"");
