@@ -9,7 +9,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
@@ -97,26 +96,13 @@ final class Suite {
         List<TestSuite.Result> results = new ArrayList<>();
         String problem = null;
         try {
-            String text = Files.readString(rule, StandardCharsets.UTF_8);
-            Path parent = rule.getParent();
-            Optional<RuleType> fromFolder = parent == null ? Optional.empty() : RuleType.fromName(parent.getFileName().toString());
-            p = RuleParser.parse(text, fromFolder.orElse(null));
-            if (p.type == null && !p.typeFromXml) p.type = fromFolder.orElseGet(() -> RuleType.guess(p.xml ? p.source : text).orElse(null));
+            p = RuleLoader.fromFile(rule, null).rule();
             findings = Validator.validate(p);
             if (p.type == null && cases == null) {
                 problem = "rule type unknown and no cases file: put it in a folder named after its type";
             } else {
                 List<TestSuite.Case> list = cases != null ? TestSuite.load(cases) : TestSuite.defaults(p.type);
-                for (TestSuite.Case c : list) {
-                    RuleRunner.Outcome oc;
-                    try {
-                        oc = RuleRunner.run(p, c.inputs(), timeoutMs);
-                    } catch (RuntimeException e) {
-                        oc = new RuleRunner.Outcome(false, null, false, "void", List.of(), List.of(), java.util.Map.of(),
-                                new RuleRunner.ErrorInfo(e.getClass().getSimpleName(), String.valueOf(e.getMessage()), null, "Check the test case inputs."), 0);
-                    }
-                    results.add(TestSuite.evaluate(c, oc, false));
-                }
+                for (TestSuite.Case c : list) results.add(TestSuite.runCase(p, c, timeoutMs, false));
             }
         } catch (IOException | RuntimeException e) {
             return new RuleRun(rule, cases, null, findings, results, buggy, buggy ? Verdict.CAUGHT : Verdict.FAIL,

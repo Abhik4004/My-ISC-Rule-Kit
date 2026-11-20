@@ -85,6 +85,18 @@ public final class TestSuite {
                 c.hasNonNull("expectChanged") ? c.get("expectChanged") : null, logs);
     }
 
+    /** Runs one case and checks it. A bad fixture (e.g. an unknown operation name) becomes an ERROR result, not a crash. */
+    public static Result runCase(ParsedRule rule, Case c, long timeoutMs, boolean strictMocks) {
+        RuleRunner.Outcome oc;
+        try {
+            oc = RuleRunner.run(rule, c.inputs(), timeoutMs);
+        } catch (RuntimeException e) {
+            oc = new RuleRunner.Outcome(false, null, false, "void", List.of(), List.of(), java.util.Map.of(),
+                    new RuleRunner.ErrorInfo(e.getClass().getSimpleName(), String.valueOf(e.getMessage()), null, "Check the test case inputs."), 0);
+        }
+        return evaluate(c, oc, strictMocks);
+    }
+
     public static Result evaluate(Case c, RuleRunner.Outcome o, boolean strictMocks) {
         List<String> fails = new ArrayList<>();
         boolean asserted = c.hasExpect() || c.expectError() || c.expectChanged() != null || !c.expectLogContains().isEmpty() || strictMocks;

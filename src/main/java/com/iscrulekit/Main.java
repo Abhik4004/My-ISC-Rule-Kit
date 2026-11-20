@@ -32,7 +32,8 @@ public final class Main {
         final List<String> positional = new ArrayList<>();
         String type, format = "text", failOn = "error", junit, out, name, desc;
         long timeoutMs = 10_000;
-        boolean strictMocks, verbose, watch;
+        int max = 40;
+        boolean strictMocks, verbose, watch, record;
     }
 
     public static void main(String[] args) {
@@ -78,6 +79,10 @@ public final class Main {
             case "scaffold": return cmdScaffold(o, out);
             case "types": return cmdTypes(out);
             case "suite": return cmdSuite(o, out);
+            case "analyze": return cmdAnalyze(o, out);
+            case "add-test", "addtest", "wizard": return cmdAddTest(o, out);
+            case "gen", "generate": return cmdGen(o, out);
+            case "new": return cmdNew(o, out);
             default: throw new UsageException("unknown command '" + cmd + "'");
         }
     }
@@ -134,6 +139,11 @@ public final class Main {
                     try { o.timeoutMs = Long.parseLong(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--timeout-ms needs a number"); }
                 }
                 case "--strict-mocks" -> o.strictMocks = true;
+                case "--record" -> o.record = true;
+                case "--dir" -> o.out = value(a, ++i, s);
+                case "--max" -> {
+                    try { o.max = Integer.parseInt(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--max needs a number"); }
+                }
                 case "--watch", "-w" -> o.watch = true;
                 case "--verbose", "-v" -> o.verbose = true;
                 case "--color" -> Ansi.on = true;
@@ -160,31 +170,23 @@ public final class Main {
     }
 
     // ---------------------------------------------------------------------------------------------------------------
-    private record Loaded(String label, ParsedRule rule, boolean autoType) {}
-
-    private static Loaded load(Opts o) throws IOException {
+    private static RuleLoader.Loaded load(Opts o) throws IOException {
         if (o.positional.isEmpty()) throw new UsageException("missing <rule> file (use - for standard input)");
         String path = o.positional.get(0);
-        String text = path.equals("-") ? new String(System.in.readAllBytes(), StandardCharsets.UTF_8) : Files.readString(Path.of(path), StandardCharsets.UTF_8);
         RuleType cli = null;
         if (o.type != null) cli = RuleType.fromName(o.type).orElseThrow(() -> new UsageException("unknown rule type '" + o.type + "' (see: iscrule types)"));
-        ParsedRule p = RuleParser.parse(text, cli);
-        boolean auto = false;
-        if (p.type == null && !p.typeFromXml) {
-            if (cli != null) p.type = cli;
-            else { p.type = RuleType.guess(p.xml ? p.source : text).orElse(null); auto = p.type != null; }
-        }
-        return new Loaded(path.equals("-") ? "<stdin>" : path, p, auto);
+        if (path.equals("-")) return RuleLoader.fromText("<stdin>", new String(System.in.readAllBytes(), StandardCharsets.UTF_8), cli, null);
+        return RuleLoader.fromFile(Path.of(path), cli);
     }
 
     private static int cmdValidate(Opts o, PrintStream out) throws IOException {
-        Loaded l = load(o);
+        RuleLoader.Loaded l = load(o);
         List<Finding> f = Validator.validate(l.rule());
         emitFindings(o, out, l, f);
         return failed(f, o.failOn) ? 1 : 0;
     }
 
-    private static void emitFindings(Opts o, PrintStream out, Loaded l, List<Finding> f) {
+    private static void emitFindings(Opts o, PrintStream out, RuleLoader.Loaded l, List<Finding> f) {
         if (o.format.equals("json")) out.println(Json.pretty(Report.findingsJson(l.label(), l.rule(), f)));
         else Report.printFindings(out, l.label(), l.rule(), l.autoType(), f, o.verbose);
     }
@@ -194,7 +196,7 @@ public final class Main {
     }
 
     private static int cmdTest(Opts o, PrintStream out, boolean alsoValidate) throws IOException {
-        Loaded l = load(o);
+        RuleLoader.Loaded l = load(o);
         List<TestSuite.Case> cases;
         boolean smoke = o.positional.size() < 2;
         if (smoke) {
@@ -219,19 +221,12 @@ public final class Main {
         }
         if (l.rule().type == null && !json) out.println("note: rule type unknown; pass --type for accurate input handling.");
         if (!json) Report.printTestsHeading(out, cases.size(), smoke
-                ? "no cases file, so default " + l.rule().type.xmlName + " inputs and no pass/fail checks (iscrule scaffold " + l.rule().type.xmlName + " makes one)"
+                ? "no cases file, so default " + l.rule().type.xmlName + " inputs and no pass/fail checks. To make real tests: iscrule add-test " + (o.positional.get(0).contains("paste-here") ? "" : o.positional.get(0)) + "  (asks what to test)"
                 : o.positional.get(1));
 
         List<TestSuite.Result> results = new ArrayList<>();
         for (TestSuite.Case c : cases) {
-            RuleRunner.Outcome oc;
-            try {
-                oc = RuleRunner.run(l.rule(), c.inputs(), o.timeoutMs);
-            } catch (RuntimeException e) { // bad fixture, e.g. invalid enum value
-                oc = new RuleRunner.Outcome(false, null, false, "void", List.of(), List.of(), java.util.Map.of(),
-                        new RuleRunner.ErrorInfo(e.getClass().getSimpleName(), String.valueOf(e.getMessage()), null, "Check the test case inputs."), 0);
-            }
-            TestSuite.Result r = TestSuite.evaluate(c, oc, o.strictMocks);
+            TestSuite.Result r = TestSuite.runCase(l.rule(), c, o.timeoutMs, o.strictMocks);
             results.add(r);
             if (!r.passed()) exit = 1;
             if (!json) Report.printResult(out, r, o.verbose);
@@ -254,7 +249,7 @@ public final class Main {
     }
 
     private static int cmdExport(Opts o, PrintStream out) throws IOException {
-        Loaded l = load(o);
+        RuleLoader.Loaded l = load(o);
         ParsedRule p = l.rule();
         ClassUnwrapper.Result u = ClassUnwrapper.unwrap(p.source, p.type == null ? List.of() : p.type.inputs);
         String ruleName = o.name != null ? o.name : !p.name.isEmpty() ? p.name : u.className().isEmpty() ? "My Rule" : u.className();
@@ -287,6 +282,73 @@ public final class Main {
         return Suite.run(folder, o.timeoutMs, o.verbose, o.junit, out);
     }
 
+    /** The rule a command works on: the first positional argument, or paste-here/Rule.java. */
+    private static Path rulePath(Opts o) throws IOException {
+        if (o.positional.isEmpty()) {
+            Path p = RunPasted.defaultRule();
+            o.positional.add(p.toString());
+            return p;
+        }
+        if (o.positional.get(0).equals("-")) throw new UsageException("this command needs a rule file, not standard input");
+        return Path.of(o.positional.get(0));
+    }
+
+    private static Path casesPath(Opts o, Path rule) {
+        return o.positional.size() > 1 ? Path.of(o.positional.get(1)) : RunPasted.casesFor(rule);
+    }
+
+    private static int cmdAnalyze(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        RuleLoader.Loaded l = load(o);
+        CaseWizard.printAnalysis(out, rule.toString(), l.rule(), RuleAnalyzer.analyze(l.rule()));
+        return 0;
+    }
+
+    private static int cmdAddTest(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = casesPath(o, rule);
+        RuleLoader.Loaded l = load(o);
+        int r = new CaseWizard(CaseWizard.stdin(), out, o.timeoutMs).addTests(rule, cases, l);
+        if (r != -1) return r;
+        out.println();
+        List<String> args = new ArrayList<>(List.of("run", rule.toString(), cases.toString()));
+        if (o.type != null) { args.add("--type"); args.add(o.type); }
+        if (o.verbose) args.add("--verbose");
+        return dispatch("run", parseOpts(args.toArray(new String[0])), out);
+    }
+
+    private static int cmdGen(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = casesPath(o, rule);
+        RuleLoader.Loaded l = load(o);
+        int n = CaseWizard.generate(l.rule(), cases, o.record, o.timeoutMs, o.max, out);
+        out.println("Added " + n + " test case" + (n == 1 ? "" : "s") + " to " + cases
+                + (o.record ? " with the current results recorded as expectations. Review them: a recorded bug is still a bug."
+                            : " (inputs only, no pass/fail checks). Add checks with --record, or edit the file."));
+        out.println("Run them:  iscrule run " + rule + " " + cases);
+        return 0;
+    }
+
+    private static int cmdNew(Opts o, PrintStream out) throws IOException {
+        if (o.positional.size() < 2) throw new UsageException("usage: new <type> <Name> [--dir folder]   (types: iscrule types)");
+        RuleType t = RuleType.fromName(o.positional.get(0)).orElseThrow(() -> new UsageException("unknown rule type '" + o.positional.get(0) + "' (see: iscrule types)"));
+        String name = o.positional.get(1).replaceAll("[^A-Za-z0-9_]", "");
+        if (name.isEmpty()) throw new UsageException("the rule name needs letters or digits");
+        Path dir = Path.of(o.out != null ? o.out : "rules").resolve(t.xmlName);
+        Path rule = dir.resolve(name + ".java");
+        if (Files.exists(rule)) throw new UsageException(rule + " already exists");
+        Files.createDirectories(dir);
+        Files.writeString(rule, Templates.rule(t, name), StandardCharsets.UTF_8);
+        out.println("Created " + rule);
+        out.println();
+        out.println("Next:");
+        out.println("  1. Write your logic in " + rule);
+        out.println("  2. iscrule add-test " + rule + "      asks what to test, runs it, saves " + name + ".cases.json");
+        out.println("  3. iscrule suite " + dir.getParent() + "            runs every rule and case in the folder");
+        out.println("  4. iscrule export " + rule + " -o \"Rule - " + t.xmlName + " - " + name + ".xml\"");
+        return 0;
+    }
+
     private static int cmdTypes(PrintStream out) {
         for (RuleType t : RuleType.values()) {
             out.printf("%-32s %s%n    inputs : %s%n    returns: %s%n", t.xmlName, t.label, String.join(", ", t.inputs),
@@ -313,6 +375,15 @@ public final class Main {
                   (validate/test/check/run/paste accept --watch to re-run whenever the file is saved,
                    --verbose to expand every case, and --color / --no-color)
                   iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   produce ISC-ready rule XML
+
+                WRITING TESTS (<rule> defaults to paste-here/Rule.java, cases to <rule>.cases.json)
+                  iscrule add-test [rule] [cases]                         asks what to test, runs the rule, shows the
+                                                                          result, asks if it is right, saves the case
+                  iscrule gen      [rule] [cases] [--record] [--max N]    writes a baseline case plus one per value the
+                                                                          rule checks; --record saves results as checks
+                  iscrule analyze  [rule]                                 what the rule reads and the values it checks
+                  iscrule new      <type> <Name> [--dir rules]            start a new rule from a template
+
                   iscrule scaffold <type>                                 print a starter cases.json
                   iscrule types                                           list rule types and their inputs
 

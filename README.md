@@ -8,6 +8,53 @@ interpreter** (the engine ISC rules use), against mock ISC objects built from JS
 > public ISC rule guidelines and code restrictions. Always run the official validator and SailPoint's review process
 > before deploying. See [Limits](#limits).
 
+## The short version: paste, answer a few questions, done
+
+```powershell
+# 1. paste your rule into paste-here\Rule.java and save
+.\iscrule.cmd add-test      # 2. asks what you want to test, runs the rule, shows the result, asks "is this right?"
+.\iscrule.cmd paste         # 3. runs every saved test case (add --watch to re-run on every save)
+```
+
+`add-test` reads your rule first, so its questions use **the values your rule actually checks**. For a
+BeforeProvisioning rule that does `"inactive".equalsIgnoreCase(cloudLifecycleState)` and
+`memberOfValue.equalsIgnoreCase(BIRTHRIGHT_GROUP)`, you get:
+
+```text
+Operation
+   1) Disable   2) Enable   3) Modify ...              number [Modify]:
+  Attribute name   1) memberOf                         [memberOf]:
+  Operation        1) Add  2) Remove  3) Set           [Add]:
+  Value            1) CN=DualAuthUsersMedCtr,...,DC=ql1,...   2) CN=DualAuthUsersMedCtr,...,DC=ucsfmedicalcenter,...
+identity attribute cloudLifecycleState   1) inactive  2) active            [active]:
+idn.getRawAccountAttribute("brb")        1) true  2) false  3) (empty)     [false]:
+...
+RESULT OF THE RUN
+  plan.accountRequests[0].operation: "Modify"  ->  "Enable"
+  + plan.accountRequests[0].attributeRequests: AC_NewParent Set "OU=MedCenterUsers,..."
+Is this what the rule should do?
+   1) yes - save it as the expected result
+   2) no - I will say what should happen       (saves your expectation, so the case fails until the rule is fixed)
+   3) save the inputs only, no check
+```
+
+Press Enter to take a default, type a number to pick a suggestion, or type any value. For several values in one
+answer (a list of groups), separate them with `;`. The case lands in `Rule.cases.json` next to the rule, and
+anything you have written there by hand is kept as it is.
+
+| Command | What it does |
+|---|---|
+| `iscrule analyze [rule]` | Lists what the rule reads and the values it compares them with, without running it. |
+| `iscrule add-test [rule] [cases]` | The interactive wizard above. |
+| `iscrule gen [rule] [cases]` | Writes a baseline case plus one case per value the rule checks (`brb=true`, `operation Disable`, ...). Add `--record` to save each run's result as its expected result. Review those: a recorded bug is still a bug. `--max N` limits the number of cases (default 40). |
+| `iscrule new <type> <Name> [--dir rules]` | Starts a rule from a template in `rules/<type>/<Name>.java`, like the RDK's starter project but with nothing to set up. Then `add-test` it, `suite rules` to run everything, `export` to get the XML. |
+
+With no `[rule]`, these use `paste-here/Rule.java`. Rules can be in any folder, and `<type>` comes from `iscrule types`.
+
+`gen` is a good first pass on someone else's rule. On the UCSFMC Before Provisioning rule it found a crash in one
+of 18 generated cases: adding the *Production* Birthright DN while the source is set to Sandbox makes the rule treat
+it as an ordinary group, and the run reaches the undefined `getSourceAttributeBySourceName`.
+
 ## Build
 
 Needs JDK 17+.
@@ -35,7 +82,14 @@ iscrule export   <rule> [--type T] [--name N] [--desc D] [-o FILE]   ISC-ready r
 iscrule scaffold <type>                                    starter cases.json for a rule type
 iscrule types                                              rule types, their inputs and return contract
 iscrule suite    [folder] [--verbose] [--junit FILE]       validate + test every rule in a folder (default: samples)
+iscrule analyze  [rule]                                    what the rule reads and the values it checks
+iscrule add-test [rule] [cases]                            interactive: build a test case, run it, approve, save
+iscrule gen      [rule] [cases] [--record] [--max N]       generate test variations
+iscrule new      <type> <Name> [--dir rules]               new rule from a template
 ```
+
+Working on the kit itself? `powershell -File scripts\selftest.ps1` builds it, runs the sample suite, and drives
+the wizard, generator and templates end to end.
 
 `<rule>` is one of:
 
