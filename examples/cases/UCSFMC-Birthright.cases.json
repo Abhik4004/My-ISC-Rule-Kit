@@ -1,0 +1,200 @@
+{
+  "cases": [
+    {
+      "name": "01 Add Birthright, active staff -> Enable + Regular Users OU",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff", "90DaysPostInactive": "false", "hasMailbox": "true", "requiresMailboxOn": "true" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "integration": null,
+        "idn": { "accountExistsByNativeIdentity": true,
+                 "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false", "msExchRecipientTypeDetails": "1", "sAMAccountName": "jdoe", "userPrincipalName": "jdoe@ucsf.edu", "description": "Staff - Radiology" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable",
+        "attributeRequests": [ { "name": "memberOf", "operation": "Add" },
+                               { "name": "AC_NewParent", "operation": "Set", "value": "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ],
+        "arguments": { "isBrb": "false", "isEmergencyDisabled": "false", "primaryAffiliation": "staff", "is90daysPostInactive": "false", "sAMAccountName": "jdoe" } } ] } },
+      "expectLogContains": [ "Birthright group is being added", "moved to regular users OU" ]
+    },
+    {
+      "name": "02 Add Birthright, affiliate + newemp -> Enable + Regular Users OU",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "newemp", "primaryUserAffiliation": "affiliate" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable",
+        "attributeRequests": [ { "name": "memberOf" }, { "name": "AC_NewParent", "value": "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ] } },
+      "expectLogContains": [ "User is newemp or acadap" ]
+    },
+    {
+      "name": "03 Add Birthright, affiliate (other) -> Enable + Temp Users OU",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "contractor", "primaryUserAffiliation": "affiliate" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable",
+        "attributeRequests": [ { "name": "memberOf" }, { "name": "AC_NewParent", "value": "OU=Temp Users,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ] } },
+      "expectLogContains": [ "moved to temp users OU" ]
+    },
+    {
+      "name": "04 Add Birthright, group DN in different case -> still Enable",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "cn=dualauthusersmedctr,ou=application accounts,ou=medcenterusers,dc=ql1,dc=ucsfmedicalcenter,dc=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable" } ] } }
+    },
+    {
+      "name": "05 Add Birthright together with another group (list value) -> Enable",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": [ "CN=SomeOtherGroup,OU=Groups,DC=ql1,DC=ucsfmedicalcenter,DC=org", "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ] } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Enable",
+        "attributeRequests": [ { "name": "memberOf" }, { "name": "AC_NewParent", "value": "OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ] } }
+    },
+    {
+      "name": "06 Add Birthright but user is on BRB -> stays Modify, no OU move",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "true" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "memberOf", "operation": "Add" } ] } ] } }
+    },
+    {
+      "name": "07 Add Birthright but user is emergency disabled -> stays Modify",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "true", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "memberOf" } ] } ] } }
+    },
+    {
+      "name": "08 Add Birthright but identity is inactive -> stays Modify",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "inactive", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "memberOf" } ] } ] } }
+    },
+    {
+      "name": "09 Add a non-Birthright group -> stays Modify",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Add", "value": "CN=SomeOtherGroup,OU=Groups,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "memberOf" } ] } ] } }
+    },
+    {
+      "name": "10 Remove Birthright, active staff -> Disable",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Disable", "attributeRequests": [ { "name": "memberOf", "operation": "Remove" } ] } ] } },
+      "expectLogContains": [ "Operation is changed from modify to disable" ]
+    },
+    {
+      "name": "11 Remove Birthright, active student -> group removal dropped, description kept",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "student", "primaryUserAffiliation": "student" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false", "description": "Student - SOM" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "description", "operation": "Set", "value": "Student - SOM" } ] } ] } }
+    },
+    {
+      "name": "12 Remove Birthright, inactive identity -> group removal dropped, description kept",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "inactive", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false", "description": "Staff - Radiology" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "description", "value": "Staff - Radiology" } ] } ] } }
+    },
+    {
+      "name": "13 Remove a non-Birthright group -> stays Modify",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "staff", "primaryUserAffiliation": "staff" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": "CN=SomeOtherGroup,OU=Groups,DC=ql1,DC=ucsfmedicalcenter,DC=org" } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify", "attributeRequests": [ { "name": "memberOf", "operation": "Remove" } ] } ] } }
+    },
+    {
+      "name": "14 Remove Birthright + another group for a student -> other group's removal should survive",
+      "inputs": {
+        "plan": {
+          "identity": { "id": "2c9180", "name": "jdoe", "attributes": { "cloudLifecycleState": "active", "identificationNumber": "12345", "affiliation": "student", "primaryUserAffiliation": "student" } },
+          "accountRequests": [ { "applicationName": "Medical Center Active Directory", "nativeIdentity": "CN=jdoe,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org", "operation": "Modify",
+            "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": [ "CN=SomeOtherGroup,OU=Groups,DC=ql1,DC=ucsfmedicalcenter,DC=org", "CN=DualAuthUsersMedCtr,OU=Application Accounts,OU=MedCenterUsers,DC=ql1,DC=ucsfmedicalcenter,DC=org" ] } ] } ]
+        },
+        "application": { "name": "Medical Center Active Directory", "attributes": { "environment": "Sandbox" } },
+        "idn": { "accountExistsByNativeIdentity": true, "getRawAccountAttribute": { "$byLastArg": { "emergencyDisabled": "false", "brb": "false", "description": "Student - SOM" }, "$default": "" } }
+      },
+      "expectChanged": { "plan": { "accountRequests": [ { "operation": "Modify",
+        "attributeRequests": [ { "name": "memberOf", "operation": "Remove", "value": "CN=SomeOtherGroup,OU=Groups,DC=ql1,DC=ucsfmedicalcenter,DC=org" },
+                               { "name": "description", "value": "Student - SOM" } ] } ] } }
+    }
+  ]
+}
