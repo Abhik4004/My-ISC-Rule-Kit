@@ -32,6 +32,7 @@ final class Sync {
     private Sync() {}
 
     private static final JsonNodeFactory F = JsonNodeFactory.instance;
+    private static final java.util.regex.Pattern SET_MAP = java.util.regex.Pattern.compile("\\.\\s*setMap\\s*\\(");
 
     record Options(RuleType type, boolean rdk, String rdkFolder, String name, boolean acceptAll, int max, long timeoutMs, long budgetMs) {}
 
@@ -41,6 +42,26 @@ final class Sync {
         if (p.type == null) throw new Main.UsageException("could not tell the rule type of " + rule + "; pass --type (see: iscrule types)");
         if (cases == null) cases = RunPasted.casesFor(rule);
         CaseWizard.Ask ask = new CaseWizard.Ask(in, out);
+
+        // setMap(...) works in the kit but not on SailPoint's classes (every RDK test fails): offer the one-word fix
+        if (o.rdk()) {
+            String text = Files.readString(rule);
+            java.util.regex.Matcher sm = SET_MAP.matcher(text);
+            int n = 0;
+            while (sm.find()) n++;
+            if (n > 0) {
+                out.println(Ansi.yellow("setMap(...)") + " is used " + n + " time" + (n == 1 ? "" : "s") + " in " + rule.getFileName()
+                        + ". SailPoint's rule API has no setMap, so every RDK test would fail with 'Method setMap not found'.");
+                out.println("putAll(map) does the same thing on a new Attributes object.");
+                if (o.acceptAll() || ask.yes("Replace setMap( with putAll( in " + rule.getFileName() + " now?", true)) {
+                    Files.writeString(rule, SET_MAP.matcher(text).replaceAll(".putAll("));
+                    out.println("  " + Ansi.green("fixed") + " " + n + " place" + (n == 1 ? "" : "s") + " in " + rule);
+                    l = RuleLoader.fromFile(rule, o.type());
+                    p = l.rule();
+                }
+                out.println();
+            }
+        }
 
         out.println(Ansi.bold(o.rdk() ? "SYNC" : "AUTO") + "  " + rule + Ansi.dim("  (" + p.type.xmlName + ")   cases: " + cases));
         List<Finding> findings = Validator.validate(p);

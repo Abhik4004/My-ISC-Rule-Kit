@@ -200,9 +200,35 @@ final class RdkUpdate {
             boolean ok = m.group(2).equals("0") && m.group(3).equals("0");
             out.println("    " + (ok ? Ansi.green("PASS") : Ansi.red("FAIL")) + "  " + m.group(4) + Ansi.dim("  (" + m.group(1) + " tests"
                     + (ok ? "" : ", " + (Integer.parseInt(m.group(2)) + Integer.parseInt(m.group(3))) + " failing") + ")"));
+            if (!ok) printFailures(rdk.resolve("target/surefire-reports/TEST-sailpoint." + m.group(4) + ".xml"), out);
         }
         for (String l : lines) if (l.matches(".*Tests run: \\d+, Failures: \\d+, Errors: \\d+, Skipped: \\d+\\s*$")) out.println("  " + l.replace("[INFO] ", "").replace("[ERROR] ", "").trim());
         return rc;
+    }
+
+    /** Prints each failing test of one surefire report with the first line of its message. */
+    private static void printFailures(Path report, PrintStream out) {
+        if (!Files.isRegularFile(report)) return;
+        try {
+            var f = javax.xml.parsers.DocumentBuilderFactory.newInstance();
+            f.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
+            org.w3c.dom.NodeList cases = f.newDocumentBuilder().parse(report.toFile()).getElementsByTagName("testcase");
+            for (int i = 0; i < cases.getLength(); i++) {
+                org.w3c.dom.Element tc = (org.w3c.dom.Element) cases.item(i);
+                for (String tag : List.of("failure", "error")) {
+                    org.w3c.dom.NodeList bad = tc.getElementsByTagName(tag);
+                    if (bad.getLength() == 0) continue;
+                    org.w3c.dom.Element e = (org.w3c.dom.Element) bad.item(0);
+                    String msg = e.getAttribute("message");
+                    if (msg.isBlank()) msg = e.getTextContent();
+                    msg = msg.strip().lines().findFirst().orElse("");
+                    if (msg.length() > 220) msg = msg.substring(0, 220) + "...";
+                    out.println("            " + tc.getAttribute("name") + ": " + Ansi.dim(msg));
+                }
+            }
+        } catch (Exception e) {
+            // the summary line is enough when the report cannot be read
+        }
     }
 
     /** Runs git; returns its output. With {@code show}, failures stop the command with git's message. */

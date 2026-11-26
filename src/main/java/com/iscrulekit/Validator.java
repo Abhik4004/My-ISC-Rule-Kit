@@ -360,7 +360,8 @@ public final class Validator {
             if (Pattern.compile("\\bnew\\s*$").matcher(before).find()) continue;
             seen.add(n);
             String sug = null;
-            for (String d : declared) if (d.contains(n) || n.contains(d)) { sug = d; break; }
+            if (IDN_METHODS.contains(n)) sug = "idn." + n; // an IdnRuleUtil method called without idn.
+            if (sug == null) for (String d : declared) if (d.contains(n) || n.contains(d)) { sug = d; break; }
             add(Severity.ERROR, "UNDEF001", L(Scan.lineOf(blank, cm.start())), "Call to '" + n + "()' but no method with that name is defined in the rule"
                     + (sug != null ? ". Did you mean '" + sug + "'?" : "."));
         }
@@ -418,6 +419,17 @@ public final class Validator {
         if (t == RuleType.ATTRIBUTE_GENERATOR_FROM_TEMPLATE && !Pattern.compile("\\bfield\\b").matcher(src).find())
             add(Severity.INFO, "TYP015", null, "AttributeGeneratorFromTemplate rules normally read the template from 'field'.");
     }
+
+    /** Method names of sailpoint.server.IdnRuleUtil in SailPoint's rule-java-docs 2.0 (the RDK's class stubs). */
+    private static final Set<String> IDN_METHODS = Set.of("accountExistsByDisplayName", "accountExistsByNativeIdentity",
+            "attrSearchCountAccounts", "attrSearchGetIdentityName", "countAccounts", "countIdentitiesBySearchableIdentityAttribute",
+            "dateToString", "findAccountsByAttribute", "findIdentitiesBySearchableIdentityAttribute", "findManagedAttributes",
+            "getAccountAttribute", "getAccountAttributeBool", "getAccountAttributeInt", "getAccountByDisplayName",
+            "getAccountByNativeIdentity", "getAllAccounts", "getFirstAccount", "getFirstAccountNativeIdentity",
+            "getFirstAccountNativeIdentityByAttribute", "getIdentityById", "getManagedAttributeDescription",
+            "getManagedAttributeDetails", "getRawAccountAttribute", "getSourceAttributeBySourceId",
+            "getSourceAttributeBySourceName", "isUniqueAccountId", "isUniqueLDAPValue", "nullSafeCaseInsensitiveEq",
+            "nullSafeCompareTo", "nullSafeEq");
 
     private static final Pattern DEF_RE = Pattern.compile(
             "^[ \\t]*(?:(?:public|private|protected|static|final|synchronized)\\s+)*[A-Za-z_][\\w.]*(?:\\s*<[^()]*?>)?(?:\\s*\\[\\s*\\])*[ \\t]+(\\w+)\\s*\\([^()]*\\)\\s*(?:throws\\s+[\\w.,\\s]+?)?\\s*\\{",

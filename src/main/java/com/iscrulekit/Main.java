@@ -306,7 +306,19 @@ public final class Main {
             return p;
         }
         if (o.positional.get(0).equals("-")) throw new UsageException("this command needs a rule file, not standard input");
-        return Path.of(o.positional.get(0));
+        String first = o.positional.get(0);
+        if (first.toLowerCase().endsWith(".cases.json")) { // given the cases file: use the rule file next to it
+            String base = first.substring(0, first.length() - ".cases.json".length());
+            for (String ext : List.of(".xml", ".java", ".bsh")) {
+                if (Files.isRegularFile(Path.of(base + ext))) {
+                    o.positional.set(0, base + ext);
+                    if (o.positional.size() == 1) o.positional.add(first);
+                    return Path.of(base + ext);
+                }
+            }
+            throw new UsageException(first + " is a cases file; give the rule file instead (no " + Path.of(base).getFileName() + ".xml, .java or .bsh next to it)");
+        }
+        return Path.of(first);
     }
 
     private static Path casesPath(Opts o, Path rule) {

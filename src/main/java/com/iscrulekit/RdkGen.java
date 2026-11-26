@@ -171,7 +171,8 @@ final class RdkGen {
             line("EvalError error = assertThrows(EvalError.class, () -> i.eval(source));");
             if (c.expectErrorContains() != null && !c.expectErrorContains().isEmpty()) {
                 imports.add("static org.junit.jupiter.api.Assertions.assertTrue");
-                line("assertTrue(String.valueOf(error).contains(" + JUnitGen.javaString(c.expectErrorContains()) + "), String.valueOf(error));");
+                line("String errorText = error.getClass().getName() + \": \" + error;");
+                line("assertTrue(errorText.contains(" + JUnitGen.javaString(c.expectErrorContains()) + "), errorText);");
             }
             b.append("    }\n");
             return;
