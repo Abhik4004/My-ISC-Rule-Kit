@@ -173,6 +173,13 @@ final class Sync {
         // 4. RDK
         if (!o.rdk()) {
             out.println();
+            try {
+                Path html = CaseReport.htmlFor(cases);
+                CaseReport.write(rule, p, cases, null, null, o.timeoutMs(), html);
+                out.println("Report (per case: log and operations): " + html.toUri());
+            } catch (IOException | RuntimeException e) {
+                out.println(Ansi.dim("(no report: " + e.getMessage() + ")"));
+            }
             out.println("Cases saved in " + cases + ". Run them in SailPoint's RDK:  iscrule rdk " + rule);
             return errors > 0 || kept > 0 || userFail > 0 ? 1 : 0;
         }
@@ -211,6 +218,17 @@ final class Sync {
                     int c = Math.min(Integer.parseInt(col.group(1)) - 1, raw.length());
                     int shown = raw.substring(0, Math.max(0, c)).replace("\t", "    ").length();
                     out.println("          " + " ".repeat(shown) + Ansi.red("^ " + (tok.find() ? "BeanShell did not expect '" + tok.group(1).trim() + "' here" : "here")));
+                }
+            }
+            // the previous code line (skipping blanks and // comments): a statement that does not end like one
+            int prev = at - 1;
+            while (prev >= 1 && (lines.get(prev - 1).isBlank() || lines.get(prev - 1).trim().startsWith("//")
+                    || lines.get(prev - 1).trim().startsWith("*") || lines.get(prev - 1).trim().startsWith("/*"))) prev--;
+            if (prev >= 1) {
+                String code = lines.get(prev - 1).replaceAll("//.*$", "").trim();
+                if (!code.isEmpty() && !code.matches(".*([;{}(,+\\-*/=?:!]|&&|\\|\\||else|try|do)$") && !code.startsWith("@")) {
+                    out.println("  " + Ansi.yellow("Likely fix: line " + prev + " does not end with ';'") + " - add it after: "
+                            + Ansi.bold(code.length() > 60 ? "..." + code.substring(code.length() - 60) : code));
                 }
             }
             out.println("  The mistake is usually just before the marked spot: a missing ; or ), an extra ( or {,");

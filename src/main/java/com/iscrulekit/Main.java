@@ -35,6 +35,7 @@ public final class Main {
         int max = 40;
         boolean strictMocks, verbose, watch, record, force, noRun, accept, noTest, noRdk;
         int seconds = 20;
+        int caseNo; // report --case N
     }
 
     public static void main(String[] args) {
@@ -87,6 +88,7 @@ public final class Main {
             case "new": return cmdNew(o, out);
             case "import": return cmdImport(o, out);
             case "rdk": return cmdRdk(o, out);
+            case "report": return cmdReport(o, out);
             case "auto", "sync": return cmdSync(cmd, o, out, false);
             case "rdk-update": return RdkUpdate.run(o.rdk != null ? o.rdk : o.positional.isEmpty() ? null : o.positional.get(0), !o.noTest, out);
             case "junit-gen": return cmdJUnitGen(o, out);
@@ -158,6 +160,9 @@ public final class Main {
                 }
                 case "--rdk" -> o.rdk = value(a, ++i, s);
                 case "--dir" -> o.out = value(a, ++i, s);
+                case "--case" -> {
+                    try { o.caseNo = Integer.parseInt(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--case needs a case number"); }
+                }
                 case "--max" -> {
                     try { o.max = Integer.parseInt(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--max needs a number"); }
                 }
@@ -374,6 +379,49 @@ public final class Main {
         return watch ? Sync.watch(rule, cases, so, in, out) : Sync.run(rule, cases, so, in, out);
     }
 
+    /** report [rule] [cases] [--case N]: per-case log, operations and RDK test code (HTML page + terminal). */
+    private static int cmdReport(Opts o, PrintStream out) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = casesPath(o, rule);
+        if (!Files.exists(cases)) throw new UsageException(cases + " does not exist yet. Create cases first: iscrule sync " + rule);
+        ParsedRule p = load(o).rule();
+        if (p.type == null) throw new UsageException("could not tell the rule type of " + rule + "; pass --type (see: iscrule types)");
+        List<TestSuite.Case> list = TestSuite.load(cases);
+        // the RDK test class generated from these cases: its first @Test method has a known name
+        Path testFile = null, report = null;
+        try {
+            Path rdk = Rdk.findRdk(o.rdk);
+            String first = list.isEmpty() ? null : JUnitGen.methodName(1, list.get(0).name(), new java.util.HashSet<>());
+            try (java.util.stream.Stream<Path> s = Files.list(rdk.resolve("src/test/java/sailpoint"))) {
+                for (Path f : s.filter(x -> x.toString().endsWith("Test.java")).toList()) {
+                    String text = Files.readString(f, java.nio.charset.StandardCharsets.UTF_8);
+                    if (first != null && text.contains(RdkGen.MARKER) && text.contains("void " + first + "(")
+                            && CaseReport.methods(text).size() == list.size()) { testFile = f; break; }
+                }
+            }
+            if (testFile != null) report = rdk.resolve("target/surefire-reports/TEST-sailpoint." + testFile.getFileName().toString().replace(".java", "") + ".xml");
+        } catch (UsageException | IOException e) {
+            // no RDK: the report shows the kit's run only
+        }
+        Path html = o.out != null ? Path.of(o.out) : CaseReport.htmlFor(cases);
+        List<CaseReport.Entry> entries = CaseReport.write(rule, p, cases, testFile, report, o.timeoutMs, html);
+        if (o.caseNo > 0) {
+            if (o.caseNo > entries.size()) throw new UsageException("there are " + entries.size() + " cases; --case must be 1.." + entries.size());
+            CaseReport.Entry e = entries.get(o.caseNo - 1);
+            CaseReport.print(e, e.c().inputs(), out);
+            out.println();
+        } else {
+            for (CaseReport.Entry e : entries) {
+                String rdkMark = e.rdkStatus() == null ? "" : (e.rdkStatus().equals("PASS") ? Ansi.green("  RDK pass") : Ansi.red("  RDK FAIL"));
+                out.println(String.format("  %3d  ", e.n()) + (e.r().passed() ? Ansi.green("pass") : Ansi.red("FAIL")) + rdkMark + "  " + e.c().name());
+            }
+            out.println();
+            out.println("Details of one case:  iscrule report " + rule + " --case <number>");
+        }
+        out.println("Report page:  " + html.toUri() + (testFile == null ? Ansi.dim("   (no RDK test class found for these cases: run 'iscrule sync' or 'iscrule rdk' to include it)") : ""));
+        return 0;
+    }
+
     private static int cmdRdk(Opts o, PrintStream out) throws IOException {
         Path rule = rulePath(o);
         Path cases = o.positional.size() > 1 ? Path.of(o.positional.get(1)) : null;
@@ -456,6 +504,9 @@ public final class Main {
                                                                           code, then runs it all in the RDK
                   iscrule rdk-update [folder] [--no-test]                 install / git pull SailPoint's RDK (into
                                                                           ./rule-development-kit), keep your files
+                  iscrule report   [rule] [cases] [--case N]              per case: the rule's log, the operations it
+                                                                          performed, and the RDK test that calls it
+                                                                          (HTML page; --case N prints one in the terminal)
 
                 SAILPOINT RULE DEVELOPMENT KIT (RDK)
                   iscrule rdk      [rule | rule.xml] [cases] [--name N] [--rdk folder] [--no-run] [--force]

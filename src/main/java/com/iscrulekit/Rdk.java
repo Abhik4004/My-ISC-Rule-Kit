@@ -111,6 +111,15 @@ final class Rdk {
         out.println();
         int rc = mavenTest(rdk, className, out);
         out.println();
+        try {
+            Path html = CaseReport.htmlFor(cases);
+            CaseReport.write(rule, p, cases, testFile, rdk.resolve("target/surefire-reports/TEST-sailpoint." + className + ".xml"), timeoutMs, html);
+            out.println(pad("report") + html.toUri() + Ansi.dim("   (per case: log, operations, RDK test code)"));
+            out.println(pad("") + Ansi.dim("one case in the terminal: iscrule report " + rule + " --case <number>"));
+            out.println();
+        } catch (IOException | RuntimeException e) {
+            out.println(Ansi.dim("(no report: " + e.getMessage() + ")"));
+        }
         if (rc == 0 && errors == 0) {
             out.println(Ansi.green("Ready to deploy: ") + xmlFile);
         } else if (rc == 0) {

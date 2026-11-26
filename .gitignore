@@ -7,3 +7,5 @@ rule-development-kit-before-update-*/
 tools/
 # install packages, not source
 iscrule-update.zip
+# test reports (made by sync / rdk / report)
+*.report.html

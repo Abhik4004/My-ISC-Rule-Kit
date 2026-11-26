@@ -106,6 +106,26 @@ Ready to deploy: ...\rule-development-kit\src\main\resources\rules\Rule - Before
 > Modify` shows the behaviour plainly. For what *must* happen, add your own cases with `add-test`. `sync` never
 > changes those.
 
+### See what each test did: the report
+
+After every `sync` and `rdk` run, the kit writes a report page next to the cases file
+(`X.cases.json` → `X.report.html`) and prints its link. For each case it shows:
+
+- **What the rule did:** the operation before → after (e.g. `Modify -> Enable`), and each attribute request,
+  marked *added by the rule*, *removed by the rule* or *from the request*. For other rule types, the return value.
+- **Log:** every `log.debug` / `log.info` / ... line the rule wrote in that case.
+- **RDK test that calls the rule:** the JUnit method in the RDK (mocks, `i.eval(source)` highlighted, and the
+  checks), with the RDK's pass/fail and its message.
+- Inputs and the objects after the rule, as JSON. Failing cases open by themselves; the filter box searches names,
+  attributes and log text.
+
+Make it again (or look at one case in the terminal) at any time:
+
+```powershell
+.\iscrule.cmd report .\imports\MyRule.xml              # list of cases + the page
+.\iscrule.cmd report .\imports\MyRule.xml --case 3     # case 3: operations, log, RDK test code
+```
+
 ### `rdk-update`
 
 | Your RDK is... | What happens |
@@ -396,6 +416,7 @@ Add `--verbose` to any command to see everything: passing cases in full, every l
 | ... and again on every save | `.\iscrule.cmd sync [rule file] --watch` |
 | Same without the RDK step | `.\iscrule.cmd auto [rule file]` |
 | Install or `git pull` SailPoint's RDK | `.\iscrule.cmd rdk-update` |
+| See each case's log, operations and RDK test code | `.\iscrule.cmd report [rule file] [--case N]` |
 | Test in SailPoint's RDK and get the deployable XML | `.\iscrule.cmd rdk [rule file or XML]` |
 | Get the XML to upload to ISC | `.\iscrule.cmd export <rule file> -o <out.xml>` |
 | See all commands | `.\iscrule.cmd help` |

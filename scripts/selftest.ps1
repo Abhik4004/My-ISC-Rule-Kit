@@ -72,6 +72,9 @@ try {
     $a3 = (& .\iscrule.cmd auto $autoRule --type IdentityAttribute --time 5 --accept --no-color) -join "`n"
     Check 'auto notices a code change and updates the auto cases (--accept)' ($a3 -match 'Behaviour changed' -and $a3 -match '\d+ updated')
 
+    $r1 = (& .\iscrule.cmd report $autoRule --type IdentityAttribute --case 1 --no-color) -join "`n"
+    Check 'report writes the page and shows one case (what the rule did + log)' ($r1 -match 'What the rule did' -and $r1 -match 'Log' -and (Test-Path (Join-Path $tmp 'Auto.report.html')))
+
     # SailPoint RDK (only when an RDK checkout and Maven are available): runs in a temporary copy of the RDK
     $rdk = @((Join-Path $root '..\rule-development-kit'), $env:ISC_RDK) | Where-Object { $_ -and (Test-Path (Join-Path $_ 'pom.xml')) } | Select-Object -First 1
     $hasMaven = (Get-Command mvn -ErrorAction SilentlyContinue) -or (Get-ChildItem (Join-Path $root '..\tools') -Directory -Filter 'apache-maven-*' -ErrorAction SilentlyContinue)
