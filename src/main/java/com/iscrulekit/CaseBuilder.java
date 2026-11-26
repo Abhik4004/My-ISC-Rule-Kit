@@ -244,6 +244,7 @@ final class CaseBuilder {
     static String brief(JsonNode v) {
         if (v == null || v.isNull()) return "null";
         if (v.isArray()) {
+            if (v.isEmpty()) return "(none)";
             List<String> parts = new ArrayList<>();
             v.forEach(x -> parts.add(brief(x)));
             return String.join("+", parts);

@@ -65,6 +65,9 @@ public final class TestSuite {
         }
     }
 
+    /** One case from its JSON (for code that edits cases files). */
+    static Case parse(JsonNode c, String defaultName) { return parseCase(c, defaultName); }
+
     private static Case parseCase(JsonNode c, String dflt) {
         if (!c.isObject()) throw new IllegalArgumentException("Each test case must be a JSON object");
         ObjectNode inputs;

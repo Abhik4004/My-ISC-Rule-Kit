@@ -33,7 +33,8 @@ public final class Main {
         String type, format = "text", failOn = "error", junit, out, name, desc, rdk;
         long timeoutMs = 10_000;
         int max = 40;
-        boolean strictMocks, verbose, watch, record, force, noRun;
+        boolean strictMocks, verbose, watch, record, force, noRun, accept, noTest, noRdk;
+        int seconds = 20;
     }
 
     public static void main(String[] args) {
@@ -63,6 +64,7 @@ public final class Main {
         String cmd = args[0];
         Opts o = parseOpts(args);
         if (cmd.equals("suite") && !hasOpt(args, "--timeout-ms")) o.timeoutMs = 3_000; // a stuck rule should not stall the whole suite
+        if (o.watch && (cmd.equals("sync") || cmd.equals("auto"))) return cmdSync(cmd, o, out, true);
         if (o.watch) {
             if (!List.of("validate", "test", "check", "run").contains(cmd)) throw new UsageException("--watch works with validate, test, check and run");
             return watch(cmd, o, out, err);
@@ -85,6 +87,8 @@ public final class Main {
             case "new": return cmdNew(o, out);
             case "import": return cmdImport(o, out);
             case "rdk": return cmdRdk(o, out);
+            case "auto", "sync": return cmdSync(cmd, o, out, false);
+            case "rdk-update": return RdkUpdate.run(o.rdk != null ? o.rdk : o.positional.isEmpty() ? null : o.positional.get(0), !o.noTest, out);
             case "junit-gen": return cmdJUnitGen(o, out);
             case "junit": return JUnitRunner.run(Path.of(o.positional.isEmpty() ? (Files.isDirectory(Path.of("rules")) ? "rules" : ".") : o.positional.get(0)), out);
             default: throw new UsageException("unknown command '" + cmd + "'");
@@ -146,6 +150,12 @@ public final class Main {
                 case "--record" -> o.record = true;
                 case "--force" -> o.force = true;
                 case "--no-run" -> o.noRun = true;
+                case "--accept" -> o.accept = true;
+                case "--no-test" -> o.noTest = true;
+                case "--no-rdk" -> o.noRdk = true;
+                case "--time" -> {
+                    try { o.seconds = Integer.parseInt(value(a, ++i, s)); } catch (NumberFormatException e) { throw new UsageException("--time needs a number of seconds"); }
+                }
                 case "--rdk" -> o.rdk = value(a, ++i, s);
                 case "--dir" -> o.out = value(a, ++i, s);
                 case "--max" -> {
@@ -342,6 +352,16 @@ public final class Main {
         return Importer.run(file, Path.of(o.out != null ? o.out : "rules"), o.force, o.timeoutMs, out);
     }
 
+    private static int cmdSync(String cmd, Opts o, PrintStream out, boolean watch) throws IOException {
+        Path rule = rulePath(o);
+        Path cases = o.positional.size() > 1 ? Path.of(o.positional.get(1)) : null;
+        RuleType t = o.type == null ? null : RuleType.fromName(o.type).orElseThrow(() -> new UsageException("unknown rule type '" + o.type + "'"));
+        int max = o.max == 40 ? 60 : o.max; // 40 is the gen default; auto/sync allow 60 unless --max says otherwise
+        Sync.Options so = new Sync.Options(t, cmd.equals("sync") && !o.noRdk, o.rdk, o.name, o.accept, max, Math.min(o.timeoutMs, 3_000), o.seconds * 1000L);
+        java.io.BufferedReader in = CaseWizard.stdin();
+        return watch ? Sync.watch(rule, cases, so, in, out) : Sync.run(rule, cases, so, in, out);
+    }
+
     private static int cmdRdk(Opts o, PrintStream out) throws IOException {
         Path rule = rulePath(o);
         Path cases = o.positional.size() > 1 ? Path.of(o.positional.get(1)) : null;
@@ -414,6 +434,16 @@ public final class Main {
                                                                           rule checks; --record saves results as checks
                   iscrule analyze  [rule]                                 what the rule reads and the values it checks
                   iscrule new      <type> <Name> [--dir rules]            start a new rule from a template
+
+                LET THE KIT WRITE AND MAINTAIN THE TESTS
+                  iscrule auto     [rule] [cases] [--time S] [--max N]    reads the rule and writes test cases that reach
+                                                                          every if/else/loop it can, with today's results
+                  iscrule sync     [rule] [cases] [--watch] [--accept] [--no-rdk]
+                                                                          after you change the rule: re-runs every case,
+                                                                          asks about changed results, adds cases for new
+                                                                          code, then runs it all in the RDK
+                  iscrule rdk-update [folder] [--no-test]                 install / git pull SailPoint's RDK (into
+                                                                          ./rule-development-kit), keep your files
 
                 SAILPOINT RULE DEVELOPMENT KIT (RDK)
                   iscrule rdk      [rule | rule.xml] [cases] [--name N] [--rdk folder] [--no-run] [--force]

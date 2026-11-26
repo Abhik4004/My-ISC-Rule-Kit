@@ -144,7 +144,10 @@ final class Rdk {
                 + "or pass --rdk <folder> (or set the ISC_RDK environment variable).");
     }
 
-    /** mvn on PATH, else MAVEN_HOME, else a tools/apache-maven-* folder next to the RDK or the working directory. */
+    /**
+     * mvn on PATH, else MAVEN_HOME, else a tools/apache-maven-* folder next to the RDK or the working directory,
+     * else Maven is downloaded once into that tools folder.
+     */
     static String findMaven(Path rdk) {
         boolean win = System.getProperty("os.name").toLowerCase().contains("win");
         String exe = win ? "mvn.cmd" : "mvn";
@@ -164,8 +167,50 @@ final class Rdk {
                 // keep looking
             }
         }
-        throw new Main.UsageException("Maven not found. Install Maven 3.9+ (or unzip it into a 'tools' folder next to the RDK), "
-                + "or use --no-run and run 'mvn test' yourself.");
+        Path tools = (rdk.getParent() == null ? rdk : rdk.getParent()).resolve("tools");
+        try {
+            Path m = downloadMaven(tools).resolve("bin").resolve(exe);
+            if (!win) m.toFile().setExecutable(true);
+            return m.toString();
+        } catch (IOException | InterruptedException | RuntimeException e) {
+            throw new Main.UsageException("Maven not found and could not be downloaded (" + e.getMessage() + "). Install Maven 3.9+ "
+                    + "(or unzip it into a 'tools' folder next to the RDK), or use --no-run and run 'mvn test' yourself.");
+        }
+    }
+
+    private static final String MAVEN_VERSION = "3.9.9";
+
+    /** Downloads Maven from Maven Central into {@code tools/apache-maven-<version>}, checking its SHA-512. */
+    private static Path downloadMaven(Path tools) throws IOException, InterruptedException {
+        String base = "https://repo.maven.apache.org/maven2/org/apache/maven/apache-maven/" + MAVEN_VERSION
+                + "/apache-maven-" + MAVEN_VERSION + "-bin.zip";
+        System.err.println("Maven not found: downloading Maven " + MAVEN_VERSION + " into " + tools + " (one time, about 9 MB)...");
+        java.net.http.HttpClient http = java.net.http.HttpClient.newBuilder()
+                .followRedirects(java.net.http.HttpClient.Redirect.NORMAL).build();
+        byte[] zip = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base)).build(),
+                java.net.http.HttpResponse.BodyHandlers.ofByteArray()).body();
+        String want = http.send(java.net.http.HttpRequest.newBuilder(java.net.URI.create(base + ".sha512")).build(),
+                java.net.http.HttpResponse.BodyHandlers.ofString()).body().trim().split("\\s+")[0];
+        String got;
+        try {
+            got = java.util.HexFormat.of().formatHex(java.security.MessageDigest.getInstance("SHA-512").digest(zip));
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IOException(e);
+        }
+        if (!got.equalsIgnoreCase(want)) throw new IOException("checksum mismatch on the Maven download");
+        Files.createDirectories(tools);
+        Path root = tools.toAbsolutePath().normalize();
+        try (java.util.zip.ZipInputStream in = new java.util.zip.ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            for (java.util.zip.ZipEntry e; (e = in.getNextEntry()) != null; ) {
+                Path p = root.resolve(e.getName()).normalize();
+                if (!p.startsWith(root)) throw new IOException("bad entry in the Maven zip: " + e.getName());
+                if (e.isDirectory()) { Files.createDirectories(p); continue; }
+                Files.createDirectories(p.getParent());
+                Files.copy(in, p, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+        }
+        System.err.println("Maven ready.");
+        return root.resolve("apache-maven-" + MAVEN_VERSION);
     }
 
     static int mavenTest(Path rdk, String className, PrintStream out) throws IOException {

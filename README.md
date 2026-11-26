@@ -21,14 +21,102 @@ You need **Java 17 or newer** (a JDK, not just a JRE). Check it with:
 java -version
 ```
 
-Open a terminal **in this folder** and build the kit:
+There is no build step. The first `.\iscrule.cmd` command builds the kit, and it rebuilds by itself whenever the code
+changes (for example after `git pull`). If Maven is missing, it is downloaded once into a `tools` folder.
+Every command below starts with `.\iscrule.cmd`.
+
+Then install SailPoint's Rule Development Kit into this folder (needs Git):
 
 ```powershell
-powershell -File scripts\build-offline.ps1
+.\iscrule.cmd rdk-update
 ```
 
-You should see `Built ... Run: .\iscrule.cmd help`. Run the build again whenever you get a newer copy of the `src`
-folder. Every command below starts with `.\iscrule.cmd`.
+---
+
+## The automatic way (recommended)
+
+You never write test cases. The kit reads your rule, writes the tests, keeps them up to date when you change the code,
+and runs them in SailPoint's RDK.
+
+**Once per rule.** Put the rule file in `imports\`, or paste it into `paste-here\Rule.java`, then run:
+
+```powershell
+.\iscrule.cmd sync imports\MyRule.xml
+```
+
+**Every time you change the rule.** Edit the file, save, and run the same command. Or leave this running and it
+re-runs on every save:
+
+```powershell
+.\iscrule.cmd sync imports\MyRule.xml --watch
+```
+
+**To refresh the RDK from SailPoint** (`git pull`; your files are kept):
+
+```powershell
+.\iscrule.cmd rdk-update
+```
+
+### What `sync` does
+
+```text
+SYNC  imports\MyRule.xml  (BeforeProvisioning)
+  validation  0 errors, 6 warnings
+
+  Behaviour changed  Disable, environment=other, cloudLifecycleState=inactive  ->  Disable with password, manager, AC_NewParent
+      plan.accountRequests[0].attributeRequests[3].value: expected "OU=Disabled accounts,...", got "OU=Disabled Users,..."
+    Is the new behaviour right?
+   1) yes - update this test
+   2) no - it's a bug, keep the old expectation (the test fails)
+   3) yes to this and all other changed auto tests
+
+  existing    51 cases: 48 unchanged, 3 updated (new behaviour accepted)
+  added       nothing (every reachable block already has a test)
+  coverage    56 of 56 blocks  (100%)
+              48 of 48 value paths  (each branch's value checked where it is used, e.g. per-environment OUs)
+
+  test class  src\test\java\sailpoint\MyRuleTest.java   (51 @Test methods)
+RESULT  51 passed  (51 RDK tests)
+Ready to deploy: ...\rule-development-kit\src\main\resources\rules\Rule - BeforeProvisioning - My Rule.xml
+```
+
+1. **Writes test cases for you.** The kit marks every `if`, `else`, loop and `catch` in the rule, then tries
+   combinations of the values your rule checks: lifecycle states, affiliations, operations, group DNs,
+   environments, `idn` results, null values. It keeps the smallest set of cases that reaches every block. It also
+   reaches every **value path**: when a variable gets a different value per branch (such as an OU per
+   environment), every value is checked where it's used. Each case records what the rule did, and its name says so:
+   `Enable, environment=Stage, affiliation=applicant -> Enable with AC_NewParent`.
+2. **When you change the code, it re-runs every case:**
+   - **Unchanged results** stay as they are.
+   - **Auto cases whose result changed** are shown to you with the exact difference. Answer **1** if the new
+     behaviour is right (the test is updated), or **2** if it's a bug (the test keeps failing until you fix the rule).
+     `--accept` answers yes to all of them.
+   - **Your own cases** (from `add-test`) are never changed. If one fails, it's listed for you to look at.
+   - **New code** (a new `if`, a new branch) gets new cases automatically.
+3. **Shows what isn't tested yet**, for example `not reached: line 164 if (accountAttribute instanceof String)`.
+   Use `add-test` for those.
+4. **Runs everything in SailPoint's RDK:** the deployable XML, the JUnit 5 + Mockito test class, and `mvn test`.
+   It ends with **Ready to deploy** when everything passes.
+
+`auto` is the same without the RDK step (faster while you work). `--time 30` gives the search more time on big rules
+(default 20 seconds), and `--max 80` allows more cases (default 60).
+
+> **Auto cases record what the rule does, not what it should do.** They catch every change in behaviour, but they
+> can't know the business rule. Read the case names once: a line like `Enable request, not in Birthright group ->
+> Modify` shows the behaviour plainly. For what *must* happen, add your own cases with `add-test`. `sync` never
+> changes those.
+
+### `rdk-update`
+
+| Your RDK is... | What happens |
+|---|---|
+| not installed | cloned into `rule-development-kit\` inside this folder |
+| a git clone | `git pull`; your generated tests and rule XMLs are untracked files, so they're kept |
+| a zip download | turned into a git clone: a fresh clone, plus every file of yours that SailPoint's copy doesn't have; the old folder is kept as `<name>-before-update-<date>` |
+
+Each time, it also sets Mockito 5.20.0 / Byte Buddy 1.17.7 in the RDK's `pom.xml` when SailPoint's copy pins older
+versions (those only work on JDK 17), so the RDK runs on your JDK. It never downgrades. Then it runs all RDK tests.
+`--no-test` skips them, and `--rdk <folder>` updates an RDK somewhere else.
 
 ---
 
@@ -304,6 +392,10 @@ Add `--verbose` to any command to see everything: passing cases in full, every l
 | Run JUnit tests | `.\iscrule.cmd junit rules` |
 | Run every rule in a folder | `.\iscrule.cmd suite rules` |
 | Start a new rule | `.\iscrule.cmd new <Type> <Name>` |
+| **Write and update all tests automatically, run them in the RDK** | `.\iscrule.cmd sync [rule file or XML]` |
+| ... and again on every save | `.\iscrule.cmd sync [rule file] --watch` |
+| Same without the RDK step | `.\iscrule.cmd auto [rule file]` |
+| Install or `git pull` SailPoint's RDK | `.\iscrule.cmd rdk-update` |
 | Test in SailPoint's RDK and get the deployable XML | `.\iscrule.cmd rdk [rule file or XML]` |
 | Get the XML to upload to ISC | `.\iscrule.cmd export <rule file> -o <out.xml>` |
 | See all commands | `.\iscrule.cmd help` |

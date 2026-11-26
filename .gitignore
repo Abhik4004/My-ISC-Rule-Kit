@@ -1,3 +1,9 @@
 target/
 lib/
 *.class
+# downloaded by 'iscrule rdk-update' / setup; each machine gets its own copy
+rule-development-kit/
+rule-development-kit-before-update-*/
+tools/
+# install packages, not source
+iscrule-update.zip

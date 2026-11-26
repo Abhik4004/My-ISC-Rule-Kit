@@ -26,6 +26,9 @@ iscrule import   <rule.xml | rules.json> [--dir rules] [--force]   ISC export ->
 iscrule junit-gen [rule] [cases]                           (re)write <Name>Test.java from the cases file
 iscrule junit    [folder|Test.java]                        compile and run JUnit test classes
 iscrule paste    [options]                                 run paste-here/Rule.java (+ Rule.cases.json)
+iscrule auto     [rule] [cases] [--time S] [--max N] [--accept]   coverage-guided test cases (blocks + value paths)
+iscrule sync     [rule] [cases] [--watch] [--accept] [--no-rdk]   auto, then the RDK step; --watch re-runs on save
+iscrule rdk-update [folder] [--no-test]                    install / git pull the RDK, keep your files, fix pom
 iscrule rdk      [rule | rule.xml] [cases] [--name N] [--rdk folder] [--no-run] [--force]
                                                            SailPoint RDK: deployable XML + JUnit 5/Mockito test, mvn test
 ```

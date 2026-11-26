@@ -61,6 +61,17 @@ try {
     & .\iscrule.cmd junit $imported --no-color | Out-Null
     Check 'generated JUnit tests catch a changed rule' ($LASTEXITCODE -eq 1)
 
+    # auto / sync: writes cases, is stable, notices a code change
+    $autoRule = Join-Path $tmp 'Auto.bsh'
+    Copy-Item samples\IdentityAttribute\LifecycleState.bsh $autoRule
+    $a1 = (& .\iscrule.cmd auto $autoRule --type IdentityAttribute --time 5 --no-color) -join "`n"
+    Check 'auto writes cases and reports coverage' ($a1 -match 'added\s+\d+ auto case' -and $a1 -match 'coverage\s+\d+ of \d+ blocks')
+    $a2 = (& .\iscrule.cmd auto $autoRule --type IdentityAttribute --time 5 --no-color) -join "`n"
+    Check 'auto on an unchanged rule adds nothing' ($a2 -match 'added\s+nothing' -and $a2 -match '\d+ unchanged')
+    (Get-Content $autoRule -Raw).Replace('return "inactive";', 'return "terminated";') | Set-Content $autoRule -Encoding utf8
+    $a3 = (& .\iscrule.cmd auto $autoRule --type IdentityAttribute --time 5 --accept --no-color) -join "`n"
+    Check 'auto notices a code change and updates the auto cases (--accept)' ($a3 -match 'Behaviour changed' -and $a3 -match '\d+ updated')
+
     # SailPoint RDK (only when an RDK checkout and Maven are available): runs in a temporary copy of the RDK
     $rdk = @((Join-Path $root '..\rule-development-kit'), $env:ISC_RDK) | Where-Object { $_ -and (Test-Path (Join-Path $_ 'pom.xml')) } | Select-Object -First 1
     $hasMaven = (Get-Command mvn -ErrorAction SilentlyContinue) -or (Get-ChildItem (Join-Path $root '..\tools') -Directory -Filter 'apache-maven-*' -ErrorAction SilentlyContinue)
