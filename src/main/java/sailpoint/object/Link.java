@@ -22,6 +22,11 @@ public class Link implements PlainConvertible {
     public void setAttributes(Attributes<String, Object> a) { attributes = a; }
 
     public Object getAttribute(String name) { return SailPointObject.lookupIn(attributes, name); }
+    public String getDisplayableName() { return displayName != null ? displayName : nativeIdentity; }
+    public boolean isDisabled() {
+        Object v = getAttribute("IIQDisabled");
+        return v != null && Boolean.parseBoolean(String.valueOf(v));
+    }
 
     @Override
     public Object toPlain() {

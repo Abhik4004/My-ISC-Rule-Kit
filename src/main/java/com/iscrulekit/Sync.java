@@ -78,6 +78,7 @@ final class Sync {
         boolean changedFile = false, acceptRest = o.acceptAll();
         int pass = 0, accepted = 0, kept = 0, userFail = 0;
         List<String> userFailures = new ArrayList<>();
+        List<Object[]> crashes = new ArrayList<>(); // [case name, inputs, outcome] of cases that end with an error
         for (int i = 0; i < list.size(); i++) {
             ObjectNode node = (ObjectNode) list.get(i);
             if (node.path("auto").asBoolean(false) && node.path("expectError").asText("").contains("ParseException")) {
@@ -87,6 +88,7 @@ final class Sync {
             }
             TestSuite.Case c = TestSuite.parse(node, "case " + (i + 1));
             TestSuite.Result r = TestSuite.runCase(p, c, o.timeoutMs(), false);
+            if (!r.outcome().ok()) crashes.add(new Object[] {c.name(), c.inputs(), r.outcome()});
             if (r.passed()) { pass++; continue; }
             boolean auto = node.path("auto").asBoolean(false) || c.name().contains("[recorded - review]");
             if (!auto) {
@@ -119,6 +121,7 @@ final class Sync {
         for (JsonNode n : list) names.add(n.path("name").asText());
         List<String> added = new ArrayList<>();
         for (AutoGen.Found f : g.cases()) {
+            if (!f.outcome().ok()) crashes.add(new Object[] {f.name(), f.inputs(), f.outcome()});
             ObjectNode c = AutoGen.toJson(f, p.type);
             String name = c.get("name").asText();
             for (int k = 2; names.contains(name); k++) name = c.get("name").asText() + " (" + k + ")";
@@ -144,6 +147,7 @@ final class Sync {
         if (!userFailures.isEmpty()) out.println("  " + pad("") + Ansi.dim("  your own cases are never changed automatically: fix the rule, or edit the case if the change is intended"));
         out.println("  " + pad("added") + (added.isEmpty() ? "nothing (every reachable block already has a test)" : added.size() + " auto case" + (added.size() == 1 ? "" : "s")));
         for (String a : added) out.println("  " + pad("") + "  + " + a);
+        if (!crashes.isEmpty()) explainCrashes(rule, p, list.size(), crashes, o.timeoutMs(), out);
 
         Set<Integer> covered = new LinkedHashSet<>(g.covered());
         int total = g.blocks().size();
@@ -193,6 +197,49 @@ final class Sync {
         int rc = Rdk.run(rule, cases, o.type(), o.rdkFolder(), o.name(), false, false, o.timeoutMs(), out);
         return rc != 0 || kept > 0 || userFail > 0 ? 1 : 0;
     }
+
+    /**
+     * Cases that end with an error are recorded as "throws ...", which hides real bugs (and usually means a value the
+     * rule needs was missing). Says how many, the message, and where it really happened: a rule that catches the error
+     * and throws its own is run once more with its try/catch turned off, so the original line shows.
+     */
+    private static void explainCrashes(Path rule, ParsedRule p, int total, List<Object[]> crashes, long timeoutMs, PrintStream out) throws IOException {
+        RuleRunner.Outcome first = (RuleRunner.Outcome) crashes.get(0)[2];
+        out.println("  " + pad("errors") + Ansi.red(crashes.size() + " of " + total + " cases end with an error")
+                + Ansi.dim(" (saved as the expected result: check that is intended)"));
+        Set<String> msgs = new LinkedHashSet<>();
+        for (Object[] c : crashes) msgs.add(((RuleRunner.Outcome) c[2]).error().type() + ": " + ((RuleRunner.Outcome) c[2]).error().message());
+        int k = 0;
+        for (String m : msgs) { if (k++ == 3) { out.println("  " + pad("") + "  ..."); break; } for (String w : Report.wrap(m, Report.WIDTH - 16)) out.println("  " + pad("") + "  " + w); }
+
+        Integer line = first.error().line();
+        String what = first.error().message();
+        boolean unwrapped = false;
+        ParsedRule bare = Coverage.withoutTryCatch(p);
+        if (bare != null) {
+            RuleRunner.Outcome again = RuleRunner.run(bare, (JsonNode) crashes.get(0)[1], timeoutMs);
+            if (!again.ok() && again.error().line() != null && !again.error().line().equals(line)) {
+                line = again.error().line();
+                what = again.error().type() + ": " + again.error().message();
+                unwrapped = true;
+            }
+        }
+        if (line == null) return;
+        List<String> lines = Files.readAllLines(rule, StandardCharsets.UTF_8);
+        out.println("  " + pad("") + "  where it really happens" + (unwrapped ? Ansi.dim(" (the rule catches it and throws its own error, so this was found by running case \""
+                + shorten(String.valueOf(crashes.get(0)[0]), 40) + "\" with the try/catch turned off)") : "") + ":");
+        for (int n = Math.max(1, line - 2); n <= Math.min(lines.size(), line); n++) {
+            String t = lines.get(n - 1).replace("\t", "    ");
+            out.println("  " + pad("") + (n == line ? Ansi.red(" >") : "  ") + String.format("%5d | ", n) + (n == line ? Ansi.bold(t.strip()) : Ansi.dim(t.strip())));
+        }
+        out.println("  " + pad("") + "    " + Ansi.red(what));
+        if (what.contains("null") || what.contains("Null"))
+            out.println("  " + pad("") + "    Something on that line is null in the test. Usually a value the test does not supply (an identity or"
+                    + "\n  " + pad("") + "    source attribute, an idn lookup) or one ISC can leave empty: add a null check in the rule, or give"
+                    + "\n  " + pad("") + "    the value in a case:  iscrule add-test " + rule);
+    }
+
+    private static String shorten(String s, int n) { return s.length() <= n ? s : s.substring(0, n - 3) + "..."; }
 
     /**
      * When the rule does not parse nothing can run: shows the code around each syntax error and returns true,

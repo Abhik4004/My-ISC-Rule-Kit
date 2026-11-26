@@ -127,6 +127,12 @@ final class AutoGen {
                 }
                 ArrayNode empty = F.arrayNode();
                 if (!opts.contains(empty)) opts.add(empty);
+                if (s.values.isEmpty()) { // nothing known about the items: try one plain item, as a list and as text
+                    JsonNode one = listOf("test1");
+                    if (!opts.contains(one)) opts.add(one);
+                    JsonNode text = F.textNode("test1,test2");
+                    if (!opts.contains(text)) opts.add(text);
+                }
                 if (!s.values.isEmpty()) {
                     JsonNode withOther = listOf(s.values.iterator().next(), "CN=Another Group,OU=Groups,DC=example,DC=org");
                     if (!opts.contains(withOther)) opts.add(withOther);

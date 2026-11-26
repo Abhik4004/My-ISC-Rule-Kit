@@ -57,7 +57,8 @@ final class RuleAnalyzer {
 
         /** Slots whose value decides a branch, or that the rule cannot work without. */
         boolean important() {
-            return !values.isEmpty() || !patternValues.isEmpty() || bool || number || nullable || kind == Kind.IDENTITY_FIELD || kind == Kind.ACCOUNT_ATTR || kind == Kind.ACCOUNT_FIELD
+            return !values.isEmpty() || !patternValues.isEmpty() || bool || number || nullable || kind == Kind.IDENTITY_FIELD || kind == Kind.IDENTITY_ATTR
+                    || kind == Kind.ACCOUNT_ATTR || kind == Kind.ACCOUNT_FIELD
                     || kind == Kind.LINK_ATTR || kind == Kind.INPUT || kind == Kind.COLUMN;
         }
     }
@@ -258,7 +259,7 @@ final class RuleAnalyzer {
             String e = expr.trim();
             Matcher m;
             for (String iv : identityVars) {
-                m = Pattern.compile("\\b" + Pattern.quote(iv) + "\\s*\\.\\s*getAttribute\\s*\\(\\s*" + STR).matcher(e);
+                m = Pattern.compile("\\b" + Pattern.quote(iv) + "\\s*\\.\\s*get(?:String)?Attribute\\s*\\(\\s*" + STR).matcher(e);
                 if (m.find()) return slot(Kind.IDENTITY_ATTR, null, m.group(1));
                 m = Pattern.compile("\\b" + Pattern.quote(iv) + "\\s*\\.\\s*get(Firstname|Lastname|Email|DisplayName)\\s*\\(\\s*\\)").matcher(e);
                 if (m.find()) return slot(Kind.IDENTITY_FIELD, null, m.group(1).toLowerCase());

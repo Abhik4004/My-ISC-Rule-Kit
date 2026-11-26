@@ -120,7 +120,12 @@ final class Rdk {
         } catch (IOException | RuntimeException e) {
             out.println(Ansi.dim("(no report: " + e.getMessage() + ")"));
         }
-        if (rc == 0 && errors == 0) {
+        boolean allThrow = !list.isEmpty() && list.stream().allMatch(TestSuite.Case::expectError);
+        if (rc == 0 && errors == 0 && allThrow) {
+            out.println(Ansi.yellow("Tests pass, but every case expects the rule to end with an error, so nothing shows it works. ")
+                    + "Check the inputs (see 'errors' above, or the report) before deploying " + xmlFile);
+            return 1;
+        } else if (rc == 0 && errors == 0) {
             out.println(Ansi.green("Ready to deploy: ") + xmlFile);
         } else if (rc == 0) {
             out.println(Ansi.yellow("Tests pass, but validation found errors: fix them before deploying ") + xmlFile);

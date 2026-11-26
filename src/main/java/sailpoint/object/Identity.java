@@ -46,6 +46,37 @@ public class Identity extends SailPointObject {
 
     public void setAttribute(String name, Object value) { attributes.put(name, value); }
 
+    /** As in SailPoint: the attribute as text (null when missing). */
+    public String getStringAttribute(String name) {
+        Object v = getAttribute(name);
+        if (v instanceof List<?> l) { // like sailpoint.tools.Util.otos: a list becomes "a,b"; an empty one null
+            if (l.isEmpty()) return null;
+            StringBuilder s = new StringBuilder();
+            for (Object o : l) s.append(s.isEmpty() ? "" : ",").append(o);
+            return s.toString();
+        }
+        return v == null ? null : String.valueOf(v);
+    }
+
+    public String getFullName() {
+        String f = firstname == null ? "" : firstname, l = lastname == null ? "" : lastname;
+        String full = (f + " " + l).trim();
+        return full.isEmpty() ? null : full;
+    }
+
+    public String getDisplayableName() { return displayName != null ? displayName : getFullName() != null ? getFullName() : getName(); }
+
+    public boolean isInactive() {
+        Object v = getAttribute("inactive");
+        return v != null && Boolean.parseBoolean(String.valueOf(v));
+    }
+
+    public List<Link> getLinksByAppIdOrName(String appId, String appName) {
+        List<Link> out = new ArrayList<>();
+        for (Link l : links) if (appName != null && appName.equals(l.getApplicationName()) || appId != null && appId.equals(l.getApplicationName())) out.add(l);
+        return out;
+    }
+
     public Link getLink(String applicationName) {
         for (Link l : links) if (applicationName != null && applicationName.equals(l.getApplicationName())) return l;
         return null;

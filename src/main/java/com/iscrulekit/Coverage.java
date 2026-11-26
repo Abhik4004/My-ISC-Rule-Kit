@@ -109,6 +109,27 @@ final class Coverage {
         return l;
     }
 
+    /**
+     * The rule with every try/catch/finally turned off ({@code try {} -> if (true) {}}, {@code catch (..) {} -> else if (false) {}},
+     * {@code finally {} -> if (true) {}}), same line numbers. A rule that catches an error and throws its own hides where
+     * the error happened; run this copy and the original error shows up with its real line.
+     */
+    static ParsedRule withoutTryCatch(ParsedRule p) {
+        String src = p.source == null ? "" : p.source;
+        String blank = Scan.blank(Scan.tokenize(src));
+        List<int[]> spans = new ArrayList<>(); // [start, end, kind]
+        Matcher m = Pattern.compile("\\btry\\s*\\{|\\}\\s*catch\\s*\\([^)]*\\)\\s*\\{|\\}\\s*finally\\s*\\{").matcher(blank);
+        while (m.find()) spans.add(new int[] {m.start(), m.end(), m.group().startsWith("try") ? 0 : m.group().contains("catch") ? 1 : 2});
+        if (spans.isEmpty()) return null;
+        StringBuilder s = new StringBuilder(src);
+        for (int i = spans.size() - 1; i >= 0; i--) {
+            int[] sp = spans.get(i);
+            String nl = src.substring(sp[0], sp[1]).replaceAll("[^\\n]", ""); // keep the line breaks
+            s.replace(sp[0], sp[1], switch (sp[2]) { case 0 -> "if (true) {"; case 1 -> "} else if (false) {"; default -> "} if (true) {"; } + nl);
+        }
+        return copy(p, s.toString());
+    }
+
     private static ParsedRule copy(ParsedRule p, String source) {
         ParsedRule c = new ParsedRule();
         c.xml = p.xml;

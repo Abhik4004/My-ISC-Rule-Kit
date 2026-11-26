@@ -171,7 +171,10 @@ final class RdkGen {
             line("EvalError error = assertThrows(EvalError.class, () -> i.eval(source));");
             if (c.expectErrorContains() != null && !c.expectErrorContains().isEmpty()) {
                 imports.add("static org.junit.jupiter.api.Assertions.assertTrue");
-                line("String errorText = error.getClass().getName() + \": \" + error;");
+                // the class and its parents (TargetError is an EvalError), then the message
+                line("String errorText = \"\";");
+                line("for (Class<?> k = error.getClass(); k != null; k = k.getSuperclass()) errorText += k.getSimpleName() + \" \";");
+                line("errorText += \": \" + error;");
                 line("assertTrue(errorText.contains(" + JUnitGen.javaString(c.expectErrorContains()) + "), errorText);");
             }
             b.append("    }\n");
@@ -340,8 +343,15 @@ final class RdkGen {
             Map.Entry<String, JsonNode> f = it.next();
             String key = JUnitGen.javaString(f.getKey());
             if (objectGetter != null && api.has(cls, objectGetter, 1)) line("when(" + var + "." + objectGetter + "(" + key + ")).thenReturn(" + lit(f.getValue()) + ");");
-            if (stringGetter != null && f.getValue().isTextual() && api.has(cls, stringGetter, 1))
-                line("when(" + var + "." + stringGetter + "(" + key + ")).thenReturn(" + lit(f.getValue()) + ");");
+            if (stringGetter != null && api.has(cls, stringGetter, 1)) {
+                JsonNode v = f.getValue();
+                if (v.isTextual()) line("when(" + var + "." + stringGetter + "(" + key + ")).thenReturn(" + lit(v) + ");");
+                else if (v.isArray() && !v.isEmpty()) { // as SailPoint does it: the items joined with commas
+                    StringBuilder s = new StringBuilder();
+                    for (JsonNode x : v) s.append(s.isEmpty() ? "" : ",").append(x.asText());
+                    line("when(" + var + "." + stringGetter + "(" + key + ")).thenReturn(" + JUnitGen.javaString(s.toString()) + ");");
+                } else if (v.isNumber() || v.isBoolean()) line("when(" + var + "." + stringGetter + "(" + key + ")).thenReturn(" + JUnitGen.javaString(v.asText()) + ");");
+            }
         }
     }
 
