@@ -22,7 +22,10 @@ Remove-Item (Join-Path $target 'classpath.txt') -ErrorAction SilentlyContinue
 
 # 1) quick build from jars already in ~/.m2 or ./lib
 $ok = $false
-try { & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $PSScriptRoot 'build-offline.ps1') *> $null; $ok = ($LASTEXITCODE -eq 0) } catch { $ok = $false }
+# (through cmd, so compiler warnings on stderr are not mistaken for a failed build)
+$offline = Join-Path $PSScriptRoot 'build-offline.ps1'
+& cmd /c "powershell -NoProfile -ExecutionPolicy Bypass -File `"$offline`" >nul 2>&1"
+$ok = ($LASTEXITCODE -eq 0)
 
 # 2) otherwise Maven downloads the libraries and builds target\isc-rule-kit.jar
 if (-not $ok) {

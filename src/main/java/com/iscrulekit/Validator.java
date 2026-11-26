@@ -223,7 +223,8 @@ public final class Validator {
             while (!parser.Line()) { /* parse every statement */ }
         } catch (bsh.ParseException e) {
             int ln = Math.max(1, e.getErrorLineNumber());
-            String msg = String.valueOf(e.getMessage()).replaceAll("\\s+", " ");
+            String msg = String.valueOf(e.getMessage()).replaceAll("\\s+", " ").replace("In file: <unknown> ", "")
+                    .replaceFirst("at line \\d+,", "at line " + L(ln) + ","); // the file's line, not the script's
             if (msg.length() > 240) msg = msg.substring(0, 240) + "...";
             add(Severity.ERROR, "SYN010", L(ln), "BeanShell cannot parse this: " + msg
                     + (GENERICS.matcher(blank).find() ? " Hint: BeanShell 2.x does not understand generics such as List<String>; remove the type parameters." : ""));

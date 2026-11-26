@@ -70,6 +70,7 @@ final class Sync {
         for (Finding f : findings) if (f.severity() == Severity.ERROR || f.severity() == Severity.WARN && (f.code().startsWith("BUG") || f.code().startsWith("API")))
             out.println("  " + pad("") + (f.severity() == Severity.ERROR ? Ansi.red("ERROR") : Ansi.yellow("WARN ")) + " " + Ansi.dim(f.code())
                     + (f.line() != null ? " line " + f.line() : "") + ": " + firstSentence(f.message()));
+        if (syntaxStop(rule, findings, out)) return 1;
 
         // 1. existing cases
         ObjectNode root = readCases(cases);
@@ -79,6 +80,11 @@ final class Sync {
         List<String> userFailures = new ArrayList<>();
         for (int i = 0; i < list.size(); i++) {
             ObjectNode node = (ObjectNode) list.get(i);
+            if (node.path("auto").asBoolean(false) && node.path("expectError").asText("").contains("ParseException")) {
+                list.remove(i--); // recorded while the rule did not parse: not a behaviour worth keeping
+                changedFile = true;
+                continue;
+            }
             TestSuite.Case c = TestSuite.parse(node, "case " + (i + 1));
             TestSuite.Result r = TestSuite.runCase(p, c, o.timeoutMs(), false);
             if (r.passed()) { pass++; continue; }
@@ -179,6 +185,38 @@ final class Sync {
         }
         int rc = Rdk.run(rule, cases, o.type(), o.rdkFolder(), o.name(), false, false, o.timeoutMs(), out);
         return rc != 0 || kept > 0 || userFail > 0 ? 1 : 0;
+    }
+
+    /**
+     * When the rule does not parse nothing can run: shows the code around each syntax error and returns true,
+     * so no tests are run, recorded or sent to the RDK until the rule is fixed.
+     */
+    static boolean syntaxStop(Path rule, List<Finding> findings, PrintStream out) throws IOException {
+        List<Finding> syntax = findings.stream().filter(f -> f.severity() == Severity.ERROR && f.code().startsWith("SYN")).toList();
+        if (syntax.isEmpty()) return false;
+        List<String> lines = Files.readAllLines(rule, StandardCharsets.UTF_8);
+        out.println();
+        out.println(Ansi.red("The rule has a syntax error, so it cannot run.") + " Nothing was tested or recorded. Fix this first:");
+        for (Finding f : syntax) {
+            if (f.line() == null || f.line() < 1 || f.line() > lines.size()) { out.println("  " + f.message()); continue; }
+            int at = f.line();
+            out.println();
+            java.util.regex.Matcher col = java.util.regex.Pattern.compile("column (\\d+)").matcher(f.message());
+            java.util.regex.Matcher tok = java.util.regex.Pattern.compile("Encountered \"([^\"]*)\"").matcher(f.message());
+            for (int n = Math.max(1, at - 3); n <= Math.min(lines.size(), at + 1); n++) {
+                String text = lines.get(n - 1).replace("\t", "    ");
+                out.println((n == at ? Ansi.red(" >") : "  ") + String.format("%5d | ", n) + (n == at ? Ansi.bold(text) : Ansi.dim(text)));
+                if (n == at && col.find()) { // marker right under the broken line
+                    String raw = lines.get(at - 1);
+                    int c = Math.min(Integer.parseInt(col.group(1)) - 1, raw.length());
+                    int shown = raw.substring(0, Math.max(0, c)).replace("\t", "    ").length();
+                    out.println("          " + " ".repeat(shown) + Ansi.red("^ " + (tok.find() ? "BeanShell did not expect '" + tok.group(1).trim() + "' here" : "here")));
+                }
+            }
+            out.println("  The mistake is usually just before the marked spot: a missing ; or ), an extra ( or {,");
+            out.println("  an 'else' after a statement that already ended, or an if/else written as a value (use ? : instead).");
+        }
+        return true;
     }
 
     /** --watch: run, then again every time the rule file is saved. Stops on Ctrl+C. */

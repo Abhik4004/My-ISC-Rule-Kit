@@ -68,6 +68,7 @@ final class Rdk {
             out.println("  " + pad("") + (f.severity() == Severity.ERROR ? Ansi.red("ERROR") : Ansi.yellow("WARN ")) + " " + Ansi.dim(f.code())
                     + (f.line() != null ? " line " + f.line() : "") + ": " + firstSentence(f.message()));
         if (warns > 0 || errors > 0) out.println("  " + pad("") + Ansi.dim("all details: iscrule validate " + rule));
+        if (Sync.syntaxStop(rule, findings, out)) return 1;
 
         // 2. the deployable XML
         Files.createDirectories(xmlFile.getParent());
